@@ -1,16 +1,17 @@
 [tool.poetry]
-name = "python-template"
+name = "solana_indexer"
 version = "0.1.0"
 description = ""
 authors = ["Landon Gingerich <landon.ging@gmail.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
 requests = "^2.31.0"
-pandas = "^2.1.3"
-openai = "^1.3.7"
-python-dotenv = "^1.0.0"
+solana = "^0.34.3"
+colorlog = "^6.8.2"
+solders = "^0.21.0"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"
