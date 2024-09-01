@@ -1,0 +1,36 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.10'
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.7.0
+    
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Lint with ruff
+      run: |
+        poetry run ruff src/ tests/
+        
+    - name: Test with pytest
+      run: |
+        poetry run pytest
