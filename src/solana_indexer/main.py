@@ -4,7 +4,8 @@ from solana.rpc.commitment import Confirmed
 from solders.signature import Signature
 import json
 from utils import logger
-
+from solders.transaction_status import EncodedTransactionWithStatusMeta
+from solders.transaction import Transaction
 
 class SolanaIndexer:
     def __init__(self, rpc_url):
@@ -34,46 +35,44 @@ class SolanaIndexer:
         }
 
         return block_data
-    
+
+
     async def process_txs(self, block):
         transactions_data = []
 
         for _, tx in enumerate(block['transactions']):
-            signature = tx.transaction.signatures[0]
+            tx_data = {
+                "transaction": {
+                    "signatures": tx.transaction.signatures,
+                    "message": {
+                        "header": {
+                            "num_required_signatures": tx.transaction.message.header.num_required_signatures,
+                            "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts,
+                            "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts
+                        },
+                        "account_keys": tx.transaction.message.account_keys,
+                        "recent_blockhash": tx.transaction.message.recent_blockhash,
+                        "instructions": [
+                            {
+                                "program_id_index": inst.program_id_index,
+                                "accounts": inst.accounts,
+                                "data": inst.data,
+                                "stack_height": getattr(inst, 'stack_height', None), # use getattr to handle failures on fetching
+                            } for inst in tx.transaction.message.instructions
+                        ],
+                        "address_table_lookups": tx.transaction.message.address_table_lookups,
+                    }
+                },
+                "meta": tx.meta,
+                "version": tx.version
+            }
+            print(tx_data)
+            transactions_data.append(tx_data)
 
-            try:
-                # Fetch detailed transaction data using get_transaction()
-                tx_response = (await self.client.get_transaction(signature)).value
-
-                if tx_response is None:
-                    logger.warning(f"Transaction data not available for signature: {signature}")
-                    continue
-
-                tx_data = {
-                    "signature": str(signature),
-                    "slot": tx_response.slot,
-                    "block_time": tx_response.block_time,
-                    "recent_blockhash": tx_response.transaction.transaction.message.recent_blockhash,
-                    "fee": None,  # Fee information is not available in this structure
-                    "status": "Success",  # Status information is not directly available
-                    "err": None,  # Error information is not directly available
-                    "accounts": [str(key) for key in tx_response.transaction.transaction.message.account_keys],
-                    "instructions": [
-                        {
-                            "program_id_index": inst.program_id_index,
-                            "accounts": inst.accounts, # need to decode this still
-                            "data": inst.data,
-                        } for inst in tx_response.transaction.transaction.message.instructions
-                    ],
-                    "log_messages": None,  # Log messages are not available in this structure
-                }
-                
-                transactions_data.append(tx_data)
-
-            except Exception as e:
-                logger.error(f"Error processing transaction {signature}: {str(e)}")
-
+            await asyncio.sleep(1)
+        
         return transactions_data
+
 
     async def run(self):
         try:
@@ -85,8 +84,8 @@ class SolanaIndexer:
                         slot = (await self.get_latest_slot()).value
                         logger.info(f"Current slot = {slot}")
                         
-                        # slot = 100 # hardcode this for now to get shorter block response data
-                        slot -= 100
+                        slot = 100 # hardcode this for now to get shorter block response data
+                        # slot -= 100
                         block_data = await self.process_block(slot)
                         transaction_data = await self.process_txs(block_data)
 
