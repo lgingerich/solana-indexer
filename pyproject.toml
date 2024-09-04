@@ -12,6 +12,7 @@ requests = "^2.31.0"
 solana = "^0.34.3"
 colorlog = "^6.8.2"
 solders = "^0.21.0"
+polars = "^1.6.0"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"
