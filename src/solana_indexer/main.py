@@ -4,8 +4,10 @@ from solana.rpc.commitment import Confirmed
 from solders.signature import Signature
 import json
 from utils import logger
-from solders.transaction_status import EncodedTransactionWithStatusMeta
+from solders.transaction_status import EncodedTransactionWithStatusMeta, UiTransactionStatusMeta
 from solders.transaction import Transaction
+import polars as pl
+
 
 class SolanaIndexer:
     def __init__(self, rpc_url):
@@ -17,61 +19,56 @@ class SolanaIndexer:
         return await self.client.get_slot(Confirmed)
     
     async def process_block(self, slot):
-        block = (await self.client.get_block(slot, max_supported_transaction_version=0)).value
+        block = (await self.client.get_block(slot, encoding='json', max_supported_transaction_version=0)).value
         if block is None:
             raise Exception(f"Block not available for slot {slot}")
 
         logger.info(f"Processing block at slot {slot}")
 
         block_data = {
-            "previous_blockhash": block.previous_blockhash,
-            "blockhash": block.blockhash,
+            "previous_blockhash": str(block.previous_blockhash),
+            "blockhash": str(block.blockhash),
             "parent_slot": block.parent_slot,
             "slot": slot,
-            "transactions": block.transactions,
-            "rewards": block.rewards,
-            "block_time": block.block_time,
-            "block_height": block.block_height
+            "block_time": block.block_time, # early protocol version has nulls here
+            "block_height": block.block_height # early protocol version has nulls here
         }
+        transactions = block.transactions
+        rewards = block.rewards
 
-        return block_data
+        return block_data, transactions, rewards
 
-
-    async def process_txs(self, block):
+    async def process_transactions(self, transactions):
         transactions_data = []
+        instructions = []
 
-        for _, tx in enumerate(block['transactions']):
-            tx_data = {
-                "transaction": {
-                    "signatures": tx.transaction.signatures,
-                    "message": {
-                        "header": {
-                            "num_required_signatures": tx.transaction.message.header.num_required_signatures,
-                            "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts,
-                            "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts
-                        },
-                        "account_keys": tx.transaction.message.account_keys,
-                        "recent_blockhash": tx.transaction.message.recent_blockhash,
-                        "instructions": [
-                            {
-                                "program_id_index": inst.program_id_index,
-                                "accounts": inst.accounts,
-                                "data": inst.data,
-                                "stack_height": getattr(inst, 'stack_height', None), # use getattr to handle failures on fetching
-                            } for inst in tx.transaction.message.instructions
-                        ],
-                        "address_table_lookups": tx.transaction.message.address_table_lookups,
-                    }
-                },
-                "meta": tx.meta,
-                "version": tx.version
-            }
-            print(tx_data)
-            transactions_data.append(tx_data)
-
-            await asyncio.sleep(1)
+        # # for tx in transactions:
+        tx = transactions[0]
+        tx_data = {
+            "signatures": [str(sig) for sig in tx.transaction.signatures],
+            "num_required_signatures": tx.transaction.message.header.num_required_signatures,
+            "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts,
+            "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts,
+            "account_keys": [str(account_key) for account_key in tx.transaction.message.account_keys],
+            "recent_blockhash": str(tx.transaction.message.recent_blockhash),
+            "version": tx.version,
+            "error": str(tx.meta.err) if tx.meta and tx.meta.err else None,
+            # "status": tx.status if tx.meta else None,
+            "fee": tx.meta.fee if tx.meta else None,
+            "pre_balances": tx.meta.pre_balances if tx.meta else None,
+            "post_balances": tx.meta.post_balances if tx.meta else None,
+        }
         
-        return transactions_data
+        transactions_data.append(tx_data)
+
+        # Collect raw instructions without parsing
+        instructions.extend(tx.transaction.message.instructions)
+        
+        return transactions_data, instructions
+
+
+    async def process_instructions(self, instructions):
+        pass
 
 
     async def run(self):
@@ -84,10 +81,27 @@ class SolanaIndexer:
                         slot = (await self.get_latest_slot()).value
                         logger.info(f"Current slot = {slot}")
                         
-                        slot = 100 # hardcode this for now to get shorter block response data
-                        # slot -= 100
-                        block_data = await self.process_block(slot)
-                        transaction_data = await self.process_txs(block_data)
+                        # slot = 100
+                        # slot = 287194310
+                        # slot = 1000000
+                        slot -= 1000
+
+                        block_data, transactions, rewards = await self.process_block(slot)
+                        transactions_data, instructions = await self.process_transactions(transactions)
+                        instructions_data = await self.process_instructions(instructions)
+                    
+                        # Convert data to Polars DataFrame and print
+                        block_df = pl.DataFrame([block_data])  # Wrap in list to create a single-row DataFrame
+                        print("Block DataFrame:")
+                        print(block_df.head())
+
+                        transactions_df = pl.DataFrame(transactions_data)
+                        print("Transactions DataFrame:")
+                        print(transactions_df.head())
+
+                        # instructions_df = pl.DataFrame(instructions_data)
+                        # print("Instructions DataFrame:")
+                        # print(instructions_df.head())                        
 
                     await asyncio.sleep(1)  # Wait for 1 second before the next iteration
 
