@@ -26,48 +26,47 @@ class SolanaIndexer:
         logger.info(f"Processing block at slot {slot}")
 
         block_data = {
-            "previous_blockhash": str(block.previous_blockhash),
-            "blockhash": str(block.blockhash),
+            "block_height": block.block_height,
+            "block_time": block.block_time,
+            "previous_block_hash": str(block.previous_blockhash),
+            "block_hash": str(block.blockhash),
             "parent_slot": block.parent_slot,
-            "slot": slot,
-            "block_time": block.block_time, # early protocol version has nulls here
-            "block_height": block.block_height # early protocol version has nulls here
+            "slot": slot
         }
         transactions = block.transactions
         rewards = block.rewards
 
         return block_data, transactions, rewards
 
-    async def process_transactions(self, transactions):
+    async def process_transactions(self, transactions, block_data):
         transactions_data = []
-        instructions = []
 
-        # # for tx in transactions:
-        tx = transactions[0]
-        tx_data = {
-            "signatures": [str(sig) for sig in tx.transaction.signatures],
-            "num_required_signatures": tx.transaction.message.header.num_required_signatures,
-            "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts,
-            "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts,
-            "account_keys": [str(account_key) for account_key in tx.transaction.message.account_keys],
-            "recent_blockhash": str(tx.transaction.message.recent_blockhash),
-            "version": tx.version,
-            "error": str(tx.meta.err) if tx.meta and tx.meta.err else None,
-            # "status": tx.status if tx.meta else None,
-            "fee": tx.meta.fee if tx.meta else None,
-            "pre_balances": tx.meta.pre_balances if tx.meta else None,
-            "post_balances": tx.meta.post_balances if tx.meta else None,
-        }
+        for tx in transactions:
+            tx_data = {
+                "block_height": block_data["block_height"],
+                "block_time": block_data["block_time"],
+                "block_hash": block_data["block_hash"],
+                "signature": str(tx.transaction.signatures[0]),
+                "num_required_signatures": tx.transaction.message.header.num_required_signatures,
+                "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts,
+                "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts,
+                "account_keys": [str(account_key) for account_key in tx.transaction.message.account_keys],
+                "recent_block_hash": str(tx.transaction.message.recent_blockhash),
+                "version": str(tx.version),
+                "error": str(tx.meta.err) if tx.meta and tx.meta.err else None,
+                "success": not bool(tx.meta.err) if tx.meta else None,
+                "fee": tx.meta.fee if tx.meta else None,
+                "pre_balances": tx.meta.pre_balances if tx.meta else None,
+                "post_balances": tx.meta.post_balances if tx.meta else None,
+            }
+            
+            transactions_data.append(tx_data)
         
-        transactions_data.append(tx_data)
-
-        # Collect raw instructions without parsing
-        instructions.extend(tx.transaction.message.instructions)
-        
-        return transactions_data, instructions
+        return transactions_data
 
 
     async def process_instructions(self, instructions):
+
         pass
 
 
@@ -84,11 +83,14 @@ class SolanaIndexer:
                         # slot = 100
                         # slot = 287194310
                         # slot = 1000000
-                        slot -= 1000
+                        # slot -= 1000
+                        slot = 38972826
 
+                        # block_data, transactions, rewards = await self.process_block(slot)
+                        # transactions_data, instructions = await self.process_transactions(transactions)
                         block_data, transactions, rewards = await self.process_block(slot)
-                        transactions_data, instructions = await self.process_transactions(transactions)
-                        instructions_data = await self.process_instructions(instructions)
+                        transactions_data = await self.process_transactions(transactions, block_data)
+                        # instructions_data = await self.process_instructions(instructions)
                     
                         # Convert data to Polars DataFrame and print
                         block_df = pl.DataFrame([block_data])  # Wrap in list to create a single-row DataFrame
@@ -98,13 +100,13 @@ class SolanaIndexer:
                         transactions_df = pl.DataFrame(transactions_data)
                         print("Transactions DataFrame:")
                         print(transactions_df.head())
-
+                        # transactions_df.write_csv('tx1.csv')
                         # instructions_df = pl.DataFrame(instructions_data)
                         # print("Instructions DataFrame:")
                         # print(instructions_df.head())                        
 
-                    await asyncio.sleep(1)  # Wait for 1 second before the next iteration
-
+                    # await asyncio.sleep(1)  # Wait for 1 second before the next iteration
+                        self.is_running = False # stop after 1 iteration
                 except Exception as e:
                     logger.error(f"Error in main loop: {str(e)}")
                     await asyncio.sleep(5)  # Wait for 5 seconds before retrying

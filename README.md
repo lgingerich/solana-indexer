@@ -1,7 +1,6 @@
-# Python Template
 
-This is a template for Python projects using Poetry for dependency management and 
-packaging.
+**(WIP)**
+![Solana data relational model](solana_data_relational_model.png)
 
 ## Development
 
