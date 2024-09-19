@@ -1,6 +1,7 @@
 import asyncio
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
+from solana.exceptions import SolanaRpcException
 from utils import logger
 import polars as pl
 import json
@@ -17,28 +18,36 @@ class SolanaIndexer:
         return await self.client.get_slot(Confirmed)
     
     async def process_block(self, slot):
-        block = (await self.client.get_block(slot, encoding='json', max_supported_transaction_version=0)).value
+        try:
+            block = (await self.client.get_block(slot, encoding='json', max_supported_transaction_version=0)).value
+            
+            if block is None:
+                raise Exception(f"Block not available for slot {slot}")
+
+            logger.info(f"Processing block at slot {slot}")
+
+            block_data = {
+                "parent_slot": block.parent_slot,
+                "slot": slot,
+                "block_time": block.block_time,
+                "block_height": block.block_height,
+                "previous_blockhash": str(block.previous_blockhash),
+                "blockhash": str(block.blockhash),
+            }
+
+            transactions_data = self.process_transactions(block.transactions, slot)
+            instructions_data = self.process_instructions(block.transactions, slot)
+            rewards_data = self.process_rewards(block.rewards, slot)
+
+            return block_data, transactions_data, instructions_data, rewards_data
         
-        if block is None:
-            raise Exception(f"Block not available for slot {slot}")
-
-        logger.info(f"Processing block at slot {slot}")
-
-        block_data = {
-            "parent_slot": block.parent_slot,
-            "slot": slot,
-            "block_time": block.block_time,
-            "block_height": block.block_height,
-            "previous_blockhash": str(block.previous_blockhash),
-            "blockhash": str(block.blockhash),
-        }
-
-        transactions_data = self.process_transactions(block.transactions, slot)
-        instructions_data = self.process_instructions(block.transactions, slot)
-        rewards_data = self.process_rewards(block.rewards, slot)
-
-        return block_data, transactions_data, instructions_data, rewards_data
-        # return block_data, transactions_data, instructions_data
+        except SolanaRpcException as e:
+            logger.error(f"Solana RPC Exception in process_block for slot {slot}: {str(e)}")
+            if "Block not available" in str(e):
+                logger.warning(f"Block {slot} not available. Skipping...")
+                return None, None, None, None
+            else:
+                raise  # Re-raise the exception if it's not a "Block not available" error
 
     def process_transactions(self, transactions, slot):
         transactions_data = []
@@ -248,9 +257,17 @@ class SolanaIndexer:
                         # Increment the latest slot
                         self.latest_slot = slot + 1
 
-                # except Exception as e:
-                #     logger.error(f"Error in main loop: {str(e)}")
-                #     await asyncio.sleep(5)  # Wait for 5 seconds before retrying
+                except SolanaRpcException as e:
+                    error_msg = f"Solana RPC Exception in main loop: {str(e)}\n"
+                    error_msg += "Traceback:\n"
+                    error_msg += traceback.format_exc()
+                    logger.error(error_msg)
+
+                    if "rate limits exceeded" in str(e).lower():
+                        logger.warning("Rate limit exceeded. Waiting for a longer period before retrying.")
+                        await asyncio.sleep(60)  # Wait for a minute before retrying
+                    else:
+                        await asyncio.sleep(5)  # Wait for 5 seconds before retrying for other errors
 
                 except Exception as e:
                     error_msg = f"Error in main loop: {str(e)}\n"
