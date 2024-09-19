@@ -2,7 +2,7 @@ import asyncio
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 from solana.exceptions import SolanaRpcException
-from utils import logger
+from utils import logger, async_retry
 import polars as pl
 import json
 from solders.pubkey import Pubkey
@@ -17,6 +17,7 @@ class SolanaIndexer:
     async def get_latest_slot(self):
         return await self.client.get_slot(Confirmed)
     
+    @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
     async def process_block(self, slot):
         try:
             block = (await self.client.get_block(slot, encoding='json', max_supported_transaction_version=0)).value
@@ -43,11 +44,7 @@ class SolanaIndexer:
         
         except SolanaRpcException as e:
             logger.error(f"Solana RPC Exception in process_block for slot {slot}: {str(e)}")
-            if "Block not available" in str(e):
-                logger.warning(f"Block {slot} not available. Skipping...")
-                return None, None, None, None
-            else:
-                raise  # Re-raise the exception if it's not a "Block not available" error
+            raise  # Re-raise the exception to be caught by the retry decorator
 
     def process_transactions(self, transactions, slot):
         transactions_data = []
@@ -227,8 +224,9 @@ class SolanaIndexer:
                     if self.latest_slot is None:
                         self.latest_slot = (await self.get_latest_slot()).value
                     else:
-                        slot = (await self.get_latest_slot()).value - 1000
+                        slot = (await self.get_latest_slot()).value - 290824209
                         # slot = 287194310
+
                         logger.info(f"Processing slot: {slot}")
 
                         block_data, transactions_data, instructions_data, rewards_data = await self.process_block(slot)
@@ -244,30 +242,22 @@ class SolanaIndexer:
                         # rewards_df.write_csv('rewards.csv')
 
                         # Print DataFrames (you can modify this to save to a file or database)
-                        print("Block DataFrame:")
-                        print(block_df)
-                        print("\nTransactions DataFrame:")
-                        print(transactions_df)
-                        print("\nInstructions DataFrame:")
-                        print(instructions_df)
-                        if rewards_df is not None:
-                            print("\nRewards DataFrame:")
-                            print(rewards_df)
+                        # print("Block DataFrame:")
+                        # print(block_df)
+                        # print("\nTransactions DataFrame:")
+                        # print(transactions_df)
+                        # print("\nInstructions DataFrame:")
+                        # print(instructions_df)
+                        # if rewards_df is not None:
+                        #     print("\nRewards DataFrame:")
+                        #     print(rewards_df)
 
                         # Increment the latest slot
                         self.latest_slot = slot + 1
 
                 except SolanaRpcException as e:
-                    error_msg = f"Solana RPC Exception in main loop: {str(e)}\n"
-                    error_msg += "Traceback:\n"
-                    error_msg += traceback.format_exc()
-                    logger.error(error_msg)
-
-                    if "rate limits exceeded" in str(e).lower():
-                        logger.warning("Rate limit exceeded. Waiting for a longer period before retrying.")
-                        await asyncio.sleep(60)  # Wait for a minute before retrying
-                    else:
-                        await asyncio.sleep(5)  # Wait for 5 seconds before retrying for other errors
+                    logger.error(f"Solana RPC Exception in process_block for slot {slot}: {str(e)}")
+                    raise  # Re-raise the exception to be caught by the retry decorator
 
                 except Exception as e:
                     error_msg = f"Error in main loop: {str(e)}\n"
