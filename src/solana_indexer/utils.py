@@ -68,7 +68,7 @@ def async_retry(
                     
                     delay = base_delay * (2 ** (attempt - 1)) if exponential_backoff else base_delay
                     if jitter:
-                        delay *= (random.uniform(0.5, 1.5))
+                        delay *= (random.uniform(1.0, 1.5))
                     
                     logger.warning(f"Attempt {attempt} failed for {func.__name__}. Retrying in {delay:.2f} seconds. Error: {str(e)}")
                     await asyncio.sleep(delay)
