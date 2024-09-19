@@ -24,12 +24,12 @@ class SolanaIndexer:
         logger.info(f"Processing block at slot {slot}")
 
         block_data = {
+            "parent_slot": block.parent_slot,
             "slot": slot,
-            "block_height": block.block_height,
             "block_time": block.block_time,
+            "block_height": block.block_height,
             "previous_blockhash": str(block.previous_blockhash),
             "blockhash": str(block.blockhash),
-            "parent_slot": block.parent_slot,
         }
 
         transactions_data = self.process_transactions(block.transactions, slot)
@@ -37,6 +37,7 @@ class SolanaIndexer:
         rewards_data = self.process_rewards(block.rewards, slot)
 
         return block_data, transactions_data, instructions_data, rewards_data
+        # return block_data, transactions_data, instructions_data
 
     def process_transactions(self, transactions, slot):
         transactions_data = []
@@ -50,13 +51,13 @@ class SolanaIndexer:
                     "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts if hasattr(tx.transaction.message, 'header') else None,
                     "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts if hasattr(tx.transaction.message, 'header') else None,
                     "recent_blockhash": str(tx.transaction.message.recent_blockhash) if hasattr(tx.transaction.message, 'recent_blockhash') else None,
-                    "is_successful": tx.meta.err is None if tx.meta else None,
+                    "success": tx.meta.err is None if tx.meta else None,
                     "error": str(tx.meta.err) if tx.meta and tx.meta.err else None,
                     "fee": tx.meta.fee if tx.meta else None,
                     "pre_balances": json.dumps(tx.meta.pre_balances) if tx.meta and tx.meta.pre_balances else None,
                     "post_balances": json.dumps(tx.meta.post_balances) if tx.meta and tx.meta.post_balances else None,
-                    "pre_token_balances": json.dumps(self.process_token_balances(tx.meta.pre_token_balances)) if tx.meta and hasattr(tx.meta, 'pre_token_balances') else None,
-                    "post_token_balances": json.dumps(self.process_token_balances(tx.meta.post_token_balances)) if tx.meta and hasattr(tx.meta, 'post_token_balances') else None,
+                    "pre_token_balances": json.dumps(self.process_token_balances(tx.meta.pre_token_balances)) if tx.meta and hasattr(tx.meta, 'pre_token_balances') else None, # this is often null — is that correct?
+                    "post_token_balances": json.dumps(self.process_token_balances(tx.meta.post_token_balances)) if tx.meta and hasattr(tx.meta, 'post_token_balances') else None, # this is often null — is that correct?
                     "log_messages": json.dumps(tx.meta.log_messages) if tx.meta and hasattr(tx.meta, 'log_messages') else None,
                     "rewards": json.dumps(self.process_rewards(tx.meta.rewards, slot)) if tx.meta and hasattr(tx.meta, 'rewards') else None,
                     "compute_units_consumed": tx.meta.compute_units_consumed if tx.meta and hasattr(tx.meta, 'compute_units_consumed') else None,
@@ -115,7 +116,7 @@ class SolanaIndexer:
             try:
                 processed_balance = {
                     "account_index": balance.account_index,
-                    "mint": str(balance.mint),  # Convert Pubkey to string
+                    "mint": str(balance.mint),
                     "amount": balance.ui_token_amount.amount,
                     "decimals": balance.ui_token_amount.decimals,
                     "ui_amount": balance.ui_token_amount.ui_amount,
@@ -137,16 +138,77 @@ class SolanaIndexer:
             try:
                 processed_reward = {
                     "slot": slot,
-                    "pubkey": str(reward.pubkey),  # Convert Pubkey to string
+                    "pubkey": str(reward.pubkey),
                     "lamports": reward.lamports,
                     "post_balance": reward.post_balance,
-                    "reward_type": reward.reward_type,
+                    "reward_type": str(reward.reward_type),
                     "commission": reward.commission,
                 }
                 processed_rewards.append(processed_reward)
             except Exception as e:
                 logger.error(f"Error processing reward in slot {slot}: {str(e)}")
         return processed_rewards
+
+    # Define schemas for each dataset
+    block_schema = {
+        "parent_slot": pl.Int64,
+        "slot": pl.Int64,
+        "block_time": pl.Int64,
+        "block_height": pl.Int64,
+        "previous_blockhash": pl.Utf8,
+        "blockhash": pl.Utf8,
+    }
+
+    transactions_schema = {
+        "slot": pl.Int64,
+        "signature": pl.Utf8,
+        "num_required_signatures": pl.Int64,
+        "num_readonly_signed_accounts": pl.Int64,
+        "num_readonly_unsigned_accounts": pl.Int64,
+        "recent_blockhash": pl.Utf8,
+        "success": pl.Boolean,
+        "error": pl.Utf8,
+        "fee": pl.Int64,
+        "pre_balances": pl.Utf8,
+        "post_balances": pl.Utf8,
+        "pre_token_balances": pl.Utf8,
+        "post_token_balances": pl.Utf8,
+        "log_messages": pl.Utf8,
+        "rewards": pl.Utf8,
+        "compute_units_consumed": pl.Int64,
+    }
+
+    instructions_schema = {
+        "slot": pl.Int64,
+        "tx_signature": pl.Utf8,
+        "instruction_index": pl.Int64,
+        "program_id_index": pl.Int64,
+        "program_id": pl.Utf8,
+        "accounts": pl.Utf8,
+        "data": pl.Utf8,
+        "is_inner": pl.Boolean,
+        "parent_index": pl.Int64,
+    }
+
+    rewards_schema = {
+        "slot": pl.Int64,
+        "pubkey": pl.Utf8,
+        "lamports": pl.Int64,
+        "post_balance": pl.Int64,
+        "reward_type": pl.Utf8,
+        "commission": pl.Int64,
+    }
+
+    # token_balances_schema = {
+    #     "account_index": pl.Int64,
+    #     "mint": pl.Utf8,
+    #     "amount": pl.Utf8,  # Using Utf8 as amount can be large
+    #     "decimals": pl.Int64,
+    #     "ui_amount": pl.Float64,
+    #     "ui_amount_string": pl.Utf8,
+    #     "owner": pl.Utf8,
+    #     "program_id": pl.Utf8,
+    # }
 
     async def run(self):
         try:
@@ -155,17 +217,21 @@ class SolanaIndexer:
                     if self.latest_slot is None:
                         self.latest_slot = (await self.get_latest_slot()).value
                     else:
-                        # slot = (await self.get_latest_slot()).value
-                        slot = 287194310
+                        slot = (await self.get_latest_slot()).value - 1000
+                        # slot = 287194310
                         logger.info(f"Processing slot: {slot}")
 
                         block_data, transactions_data, instructions_data, rewards_data = await self.process_block(slot)
 
                         # Convert data to Polars DataFrames
-                        block_df = pl.DataFrame([block_data])
-                        transactions_df = pl.DataFrame(transactions_data)
-                        instructions_df = pl.DataFrame(instructions_data)
-                        rewards_df = pl.DataFrame(rewards_data) if rewards_data else None
+                        block_df = pl.DataFrame([block_data], schema=self.block_schema)
+                        # block_df.write_csv('blocks.csv')
+                        transactions_df = pl.DataFrame(transactions_data, schema=self.transactions_schema)
+                        # transactions_df.write_csv('transactions.csv')
+                        instructions_df = pl.DataFrame(instructions_data, schema=self.instructions_schema)
+                        # instructions_df.write_csv('instructions.csv')
+                        rewards_df = pl.DataFrame(rewards_data, schema=self.rewards_schema) if rewards_data else None
+                        # rewards_df.write_csv('rewards.csv')
 
                         # Print DataFrames (you can modify this to save to a file or database)
                         print("Block DataFrame:")
