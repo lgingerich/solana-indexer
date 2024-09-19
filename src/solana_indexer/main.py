@@ -5,6 +5,7 @@ from utils import logger
 import polars as pl
 import json
 from solders.pubkey import Pubkey
+import traceback
 
 class SolanaIndexer:
     def __init__(self, rpc_url):
@@ -247,9 +248,15 @@ class SolanaIndexer:
                         # Increment the latest slot
                         self.latest_slot = slot + 1
 
+                # except Exception as e:
+                #     logger.error(f"Error in main loop: {str(e)}")
+                #     await asyncio.sleep(5)  # Wait for 5 seconds before retrying
+
                 except Exception as e:
-                    logger.error(f"Error in main loop: {str(e)}")
-                    await asyncio.sleep(5)  # Wait for 5 seconds before retrying
+                    error_msg = f"Error in main loop: {str(e)}\n"
+                    error_msg += "Traceback:\n"
+                    error_msg += traceback.format_exc()
+                    logger.error(error_msg)
         finally:
             await self.cleanup()
 
