@@ -57,7 +57,7 @@ class SolanaSchemas:
             "reward_type": pl.Utf8,
             "commission": pl.Int64,
         }
-    
+
     # token_balances_schema = {
     #     "account_index": pl.Int64,
     #     "mint": pl.Utf8,

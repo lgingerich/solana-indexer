@@ -1,13 +1,13 @@
-import asyncio
+import json
+import polars as pl
+import traceback
+
+from schemas import SolanaSchemas
+from utils import logger, async_retry
+
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 from solana.exceptions import SolanaRpcException
-from utils import logger, async_retry
-import polars as pl
-import json
-from solders.pubkey import Pubkey
-from schemas import SolanaSchemas
-import traceback
 
 class SolanaIndexer:
     def __init__(self, rpc_url):
