@@ -54,3 +54,27 @@ poetry run ruff .
 ```
 
 Ruff will analyze your code for potential errors and style issues.
+
+
+
+
+
+# To Do:
+- Implement logic to know which block to process
+    - A single block should never be processed multiple times
+    - A block should never be skipped
+
+- Improve error/exception handling
+    - Can also add circuit breaker logic via "pybreaker"
+
+- Data saving
+    - v1: batch save data to csv
+    - v2: add iceberg/parquet as data sink
+    - v3: implement streaming/micro-batch saving to iceberg
+
+- Handle chain reorgs
+    - TBD if I want to handle this
+
+- (Long term) Parallel processing for historical backfills
+
+- Data validation / quality checks
