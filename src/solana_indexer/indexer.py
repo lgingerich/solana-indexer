@@ -6,6 +6,7 @@ from utils import logger, async_retry
 import polars as pl
 import json
 from solders.pubkey import Pubkey
+from schemas import SolanaSchemas
 import traceback
 
 class SolanaIndexer:
@@ -13,6 +14,7 @@ class SolanaIndexer:
         self.client = AsyncClient(rpc_url)
         self.latest_slot = None
         self.is_running = True
+        self.schemas = SolanaSchemas()
 
     async def get_latest_slot(self):
         return await self.client.get_slot(Confirmed)
@@ -156,67 +158,6 @@ class SolanaIndexer:
                 logger.error(f"Error processing reward in slot {slot}: {str(e)}")
         return processed_rewards
 
-    # Define schemas for each dataset
-    block_schema = {
-        "parent_slot": pl.Int64,
-        "slot": pl.Int64,
-        "block_time": pl.Int64,
-        "block_height": pl.Int64,
-        "previous_blockhash": pl.Utf8,
-        "blockhash": pl.Utf8,
-    }
-
-    transactions_schema = {
-        "slot": pl.Int64,
-        "signature": pl.Utf8,
-        "num_required_signatures": pl.Int64,
-        "num_readonly_signed_accounts": pl.Int64,
-        "num_readonly_unsigned_accounts": pl.Int64,
-        "recent_blockhash": pl.Utf8,
-        "success": pl.Boolean,
-        "error": pl.Utf8,
-        "fee": pl.Int64,
-        "pre_balances": pl.Utf8,
-        "post_balances": pl.Utf8,
-        "pre_token_balances": pl.Utf8,
-        "post_token_balances": pl.Utf8,
-        "log_messages": pl.Utf8,
-        "rewards": pl.Utf8,
-        "compute_units_consumed": pl.Int64,
-    }
-
-    instructions_schema = {
-        "slot": pl.Int64,
-        "tx_signature": pl.Utf8,
-        "instruction_index": pl.Int64,
-        "program_id_index": pl.Int64,
-        "program_id": pl.Utf8,
-        "accounts": pl.Utf8,
-        "data": pl.Utf8,
-        "is_inner": pl.Boolean,
-        "parent_index": pl.Int64,
-    }
-
-    rewards_schema = {
-        "slot": pl.Int64,
-        "pubkey": pl.Utf8,
-        "lamports": pl.Int64,
-        "post_balance": pl.Int64,
-        "reward_type": pl.Utf8,
-        "commission": pl.Int64,
-    }
-
-    # token_balances_schema = {
-    #     "account_index": pl.Int64,
-    #     "mint": pl.Utf8,
-    #     "amount": pl.Utf8,  # Using Utf8 as amount can be large
-    #     "decimals": pl.Int64,
-    #     "ui_amount": pl.Float64,
-    #     "ui_amount_string": pl.Utf8,
-    #     "owner": pl.Utf8,
-    #     "program_id": pl.Utf8,
-    # }
-
     async def run(self):
         try:
             while self.is_running:
@@ -232,14 +173,10 @@ class SolanaIndexer:
                         block_data, transactions_data, instructions_data, rewards_data = await self.process_block(slot)
 
                         # Convert data to Polars DataFrames
-                        block_df = pl.DataFrame([block_data], schema=self.block_schema)
-                        # block_df.write_csv('blocks.csv')
-                        transactions_df = pl.DataFrame(transactions_data, schema=self.transactions_schema)
-                        # transactions_df.write_csv('transactions.csv')
-                        instructions_df = pl.DataFrame(instructions_data, schema=self.instructions_schema)
-                        # instructions_df.write_csv('instructions.csv')
-                        rewards_df = pl.DataFrame(rewards_data, schema=self.rewards_schema) if rewards_data else None
-                        # rewards_df.write_csv('rewards.csv')
+                        block_df = pl.DataFrame([block_data], schema=self.schemas.block_schema())
+                        transactions_df = pl.DataFrame(transactions_data, schema=self.schemas.transactions_schema())
+                        instructions_df = pl.DataFrame(instructions_data, schema=self.schemas.instructions_schema())
+                        rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
 
                         # Print DataFrames (you can modify this to save to a file or database)
                         # print("Block DataFrame:")
