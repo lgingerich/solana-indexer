@@ -14,7 +14,7 @@ async def main():
     logger.info(f"Ending slot: {end_slot}")
 
     # Initialize indexer
-    indexer = SolanaIndexer(rpc_url)
+    indexer = SolanaIndexer(rpc_url, start_slot, end_slot)
 
     def signal_handler():
         logger.info("Keyboard interrupt received. Shutting down gracefully...")

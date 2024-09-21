@@ -1,3 +1,4 @@
+import asyncio
 import json
 import polars as pl
 import traceback
@@ -10,14 +11,29 @@ from solana.rpc.commitment import Confirmed
 from solana.exceptions import SolanaRpcException
 
 class SolanaIndexer:
-    def __init__(self, rpc_url):
+    def __init__(self, rpc_url, start_slot, end_slot):
         self.client = AsyncClient(rpc_url)
-        self.latest_slot = None
+        self.start_slot = start_slot
+        self.end_slot = end_slot
+        self.current_slot = None
+        self.latest_confirmed_slot = None
         self.is_running = True
         self.schemas = SolanaSchemas()
 
+    async def initialize(self):
+        self.latest_confirmed_slot = await self.get_latest_slot()
+        if self.start_slot == "latest":
+            self.current_slot = self.latest_confirmed_slot
+        elif self.start_slot == "genesis":
+            self.current_slot = 0
+        elif self.start_slot == "last_processed":
+            # TODO: Implement logic to get the last processed slot from storage
+            self.current_slot = 0  # Placeholder, replace with actual implementation
+        else:
+            self.current_slot = self.start_slot
+
     async def get_latest_slot(self):
-        return await self.client.get_slot(Confirmed)
+        return (await self.client.get_slot(Confirmed)).value
     
     @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
     async def process_block(self, slot):
@@ -160,40 +176,36 @@ class SolanaIndexer:
 
     async def run(self):
         try:
+            await self.initialize()
             while self.is_running:
                 try:
-                    if self.latest_slot is None:
-                        self.latest_slot = (await self.get_latest_slot()).value
-                    else:
-                        slot = (await self.get_latest_slot()).value - 290824209
-                        # slot = 287194310
+                    if self.end_slot is not None and self.current_slot > self.end_slot:
+                        logger.info(f"Reached end slot {self.end_slot}. Stopping indexer.")
+                        break
 
-                        logger.info(f"Processing slot: {slot}")
+                    if self.current_slot >= self.latest_confirmed_slot:
+                        self.latest_confirmed_slot = await self.get_latest_slot()
+                        if self.current_slot >= self.latest_confirmed_slot:
+                            await asyncio.sleep(1)  # Wait for new blocks
+                            continue
 
-                        block_data, transactions_data, instructions_data, rewards_data = await self.process_block(slot)
+                    logger.info(f"Processing slot: {self.current_slot}")
 
-                        # Convert data to Polars DataFrames
-                        block_df = pl.DataFrame([block_data], schema=self.schemas.block_schema())
-                        transactions_df = pl.DataFrame(transactions_data, schema=self.schemas.transactions_schema())
-                        instructions_df = pl.DataFrame(instructions_data, schema=self.schemas.instructions_schema())
-                        rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
+                    block_data, transactions_data, instructions_data, rewards_data = await self.process_block(self.current_slot)
 
-                        # Print DataFrames (you can modify this to save to a file or database)
-                        # print("Block DataFrame:")
-                        # print(block_df)
-                        # print("\nTransactions DataFrame:")
-                        # print(transactions_df)
-                        # print("\nInstructions DataFrame:")
-                        # print(instructions_df)
-                        # if rewards_df is not None:
-                        #     print("\nRewards DataFrame:")
-                        #     print(rewards_df)
+                    # Convert data to Polars DataFrames
+                    block_df = pl.DataFrame([block_data], schema=self.schemas.block_schema())
+                    transactions_df = pl.DataFrame(transactions_data, schema=self.schemas.transactions_schema())
+                    instructions_df = pl.DataFrame(instructions_data, schema=self.schemas.instructions_schema())
+                    rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
 
-                        # Increment the latest slot
-                        self.latest_slot = slot + 1
+                    # TODO: Save DataFrames to storage (e.g., database or file)
+
+                    # Increment the current slot
+                    self.current_slot += 1
 
                 except SolanaRpcException as e:
-                    logger.error(f"Solana RPC Exception in process_block for slot {slot}: {str(e)}")
+                    logger.error(f"Solana RPC Exception in process_block for slot {self.current_slot}: {str(e)}")
                     raise  # Re-raise the exception to be caught by the retry decorator
 
                 except Exception as e:
