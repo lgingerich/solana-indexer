@@ -4,8 +4,18 @@ from functools import wraps
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from pathlib import Path
 import random
+import yaml
 from solana.exceptions import SolanaRpcException
+
+def load_config(filename='config.yml'):
+    project_root = Path(__file__).resolve().parent.parent.parent
+    config_path = project_root / filename
+    if config_path.is_file():
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+    raise FileNotFoundError(f"Config file '{filename}' not found in project root")
 
 def setup_logger(log_file_path="logs/solana_indexer.log", log_level=logging.INFO):
     logger = logging.getLogger("main_logger")

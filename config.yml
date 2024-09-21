@@ -1,0 +1,6 @@
+rpc:
+  url: "https://api.mainnet-beta.solana.com"  # Solana RPC endpoint
+
+indexer:
+  start_block: 1000000  # The block number to start processing from
+  end_block: null  # Optional: set to null for continuous processing
