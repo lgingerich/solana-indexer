@@ -3,7 +3,7 @@ import json
 import polars as pl
 import traceback
 
-from data_store import write_df_to_parquet
+from data_store import write_df_to_parquet, find_last_processed_block
 from schemas import SolanaSchemas
 from utils import logger, async_retry
 
@@ -14,7 +14,7 @@ from solana.exceptions import SolanaRpcException
 class SolanaIndexer:
     def __init__(self, rpc_url, start_slot, end_slot):
         self.client = AsyncClient(rpc_url)
-        self.start_slot = start_slot
+        self.configured_start_slot = start_slot
         self.end_slot = end_slot
         self.current_slot = None
         self.latest_confirmed_slot = None
@@ -23,15 +23,23 @@ class SolanaIndexer:
 
     async def initialize(self):
         self.latest_confirmed_slot = await self.get_latest_slot()
-        if self.start_slot == "latest":
+        last_processed_slot = find_last_processed_block()
+
+        if last_processed_slot is not None:
+            # Resume from the next slot after the last processed one
+            self.current_slot = last_processed_slot + 1
+            logger.info(f"Found previously processed data. Resuming from slot: {self.current_slot}")
+        elif self.configured_start_slot == "latest":
             self.current_slot = self.latest_confirmed_slot
-        elif self.start_slot == "genesis":
+            logger.info(f"No previous data found. Starting from latest confirmed slot: {self.current_slot}")
+        elif self.configured_start_slot == "genesis":
             self.current_slot = 0
-        elif self.start_slot == "last_processed":
-            # TODO: Implement logic to get the last processed slot from storage
-            self.current_slot = 0  # Placeholder, replace with actual implementation
+            logger.info("No previous data found. Starting from genesis block (slot 0)")
         else:
-            self.current_slot = self.start_slot
+            self.current_slot = self.configured_start_slot
+            logger.info(f"No previous data found. Starting from configured slot: {self.current_slot}")
+
+        logger.info(f"Indexer initialized. Processing will begin at slot: {self.current_slot}")
 
     async def get_latest_slot(self):
         return (await self.client.get_slot(Confirmed)).value

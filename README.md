@@ -60,10 +60,6 @@ Ruff will analyze your code for potential errors and style issues.
 
 
 # To Do:
-- Implement logic to know which block to process
-    - A single block should never be processed multiple times
-    - A block should never be skipped
-
 - Improve error/exception handling
     - Can also add circuit breaker logic via "pybreaker"
 

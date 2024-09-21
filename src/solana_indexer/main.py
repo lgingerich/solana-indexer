@@ -10,8 +10,9 @@ async def main():
     end_slot = config["indexer"].get("end_slot")
     
     logger.info(f"RPC URL: {rpc_url}")
-    logger.info(f"Starting slot: {start_slot}")
-    logger.info(f"Ending slot: {end_slot}")
+    logger.info(f"Configured start slot: {start_slot}")
+    logger.info(f"Configured end slot: {end_slot}")
+    logger.info("Note: Actual starting slot may differ based on previously processed data. \n")
 
     # Initialize indexer
     indexer = SolanaIndexer(rpc_url, start_slot, end_slot)
