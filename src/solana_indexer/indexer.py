@@ -3,6 +3,7 @@ import json
 import polars as pl
 import traceback
 
+from data_store import write_df_to_parquet
 from schemas import SolanaSchemas
 from utils import logger, async_retry
 
@@ -199,7 +200,12 @@ class SolanaIndexer:
                     instructions_df = pl.DataFrame(instructions_data, schema=self.schemas.instructions_schema())
                     rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
 
-                    # TODO: Save DataFrames to storage (e.g., database or file)
+                    # Write DataFrames to Parquet files
+                    write_df_to_parquet(block_df, "blocks", self.current_slot)
+                    write_df_to_parquet(transactions_df, "transactions", self.current_slot)
+                    write_df_to_parquet(instructions_df, "instructions", self.current_slot)
+                    if rewards_df is not None:
+                        write_df_to_parquet(rewards_df, "rewards", self.current_slot)
 
                     # Increment the current slot
                     self.current_slot += 1
