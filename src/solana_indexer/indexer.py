@@ -22,7 +22,7 @@ class SolanaIndexer:
     @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
     async def process_block(self, slot):
         try:
-            block = (await self.client.get_block(slot, encoding='json', max_supported_transaction_version=0)).value
+            block = (await self.client.get_block(slot, encoding="json", max_supported_transaction_version=0)).value
             
             if block is None:
                 raise Exception(f"Block not available for slot {slot}")
@@ -56,20 +56,20 @@ class SolanaIndexer:
                 tx_data = {
                     "slot": slot,
                     "signature": str(tx.transaction.signatures[0]) if tx.transaction.signatures else None,
-                    "num_required_signatures": tx.transaction.message.header.num_required_signatures if hasattr(tx.transaction.message, 'header') else None,
-                    "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts if hasattr(tx.transaction.message, 'header') else None,
-                    "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts if hasattr(tx.transaction.message, 'header') else None,
-                    "recent_blockhash": str(tx.transaction.message.recent_blockhash) if hasattr(tx.transaction.message, 'recent_blockhash') else None,
+                    "num_required_signatures": tx.transaction.message.header.num_required_signatures if hasattr(tx.transaction.message, "header") else None,
+                    "num_readonly_signed_accounts": tx.transaction.message.header.num_readonly_signed_accounts if hasattr(tx.transaction.message, "header") else None,
+                    "num_readonly_unsigned_accounts": tx.transaction.message.header.num_readonly_unsigned_accounts if hasattr(tx.transaction.message, "header") else None,
+                    "recent_blockhash": str(tx.transaction.message.recent_blockhash) if hasattr(tx.transaction.message, "recent_blockhash") else None,
                     "success": tx.meta.err is None if tx.meta else None,
                     "error": str(tx.meta.err) if tx.meta and tx.meta.err else None,
                     "fee": tx.meta.fee if tx.meta else None,
                     "pre_balances": json.dumps(tx.meta.pre_balances) if tx.meta and tx.meta.pre_balances else None,
                     "post_balances": json.dumps(tx.meta.post_balances) if tx.meta and tx.meta.post_balances else None,
-                    "pre_token_balances": json.dumps(self.process_token_balances(tx.meta.pre_token_balances)) if tx.meta and hasattr(tx.meta, 'pre_token_balances') else None, # this is often null — is that correct?
-                    "post_token_balances": json.dumps(self.process_token_balances(tx.meta.post_token_balances)) if tx.meta and hasattr(tx.meta, 'post_token_balances') else None, # this is often null — is that correct?
-                    "log_messages": json.dumps(tx.meta.log_messages) if tx.meta and hasattr(tx.meta, 'log_messages') else None,
-                    "rewards": json.dumps(self.process_rewards(tx.meta.rewards, slot)) if tx.meta and hasattr(tx.meta, 'rewards') else None,
-                    "compute_units_consumed": tx.meta.compute_units_consumed if tx.meta and hasattr(tx.meta, 'compute_units_consumed') else None,
+                    "pre_token_balances": json.dumps(self.process_token_balances(tx.meta.pre_token_balances)) if tx.meta and hasattr(tx.meta, "pre_token_balances") else None, # this is often null — is that correct?
+                    "post_token_balances": json.dumps(self.process_token_balances(tx.meta.post_token_balances)) if tx.meta and hasattr(tx.meta, "post_token_balances") else None, # this is often null — is that correct?
+                    "log_messages": json.dumps(tx.meta.log_messages) if tx.meta and hasattr(tx.meta, "log_messages") else None,
+                    "rewards": json.dumps(self.process_rewards(tx.meta.rewards, slot)) if tx.meta and hasattr(tx.meta, "rewards") else None,
+                    "compute_units_consumed": tx.meta.compute_units_consumed if tx.meta and hasattr(tx.meta, "compute_units_consumed") else None,
                 }
                 transactions_data.append(tx_data)
             except Exception as e:
@@ -96,7 +96,7 @@ class SolanaIndexer:
                     instructions_data.append(instruction_data)
 
                 # Process inner instructions if available
-                if tx.meta and hasattr(tx.meta, 'inner_instructions'):
+                if tx.meta and hasattr(tx.meta, "inner_instructions"):
                     for inner_instructions in tx.meta.inner_instructions:
                         for inner_idx, inner_instruction in enumerate(inner_instructions.instructions):
                             inner_instruction_data = {
