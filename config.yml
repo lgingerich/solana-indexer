@@ -2,5 +2,11 @@ rpc:
   url: "https://api.mainnet-beta.solana.com"  # Solana RPC endpoint
 
 indexer:
-  start_block: 1000000  # The block number to start processing from
-  end_block: null  # Optional: set to null for continuous processing
+  # Valid values for start_slot and end_slot:
+  # - Positive integers (e.g., 100_000_000)
+  # - "genesis": Start from the genesis block (slot 0)
+  # - "last_processed": Start from slot last saved in storage
+  # - "latest": Use the most recent confirmed slot
+  # - null: Only valid for end_slot, indicates continuous processing
+  start_slot: 100_000_000 
+  end_slot: null  # Optional: set to null for continuous processing

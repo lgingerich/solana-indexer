@@ -8,14 +8,50 @@ from pathlib import Path
 import random
 import yaml
 from solana.exceptions import SolanaRpcException
+from solana.rpc.async_api import AsyncClient
+from solana.rpc.commitment import Confirmed
 
-def load_config(filename='config.yml'):
+async def load_config(filename="config.yml"):
     project_root = Path(__file__).resolve().parent.parent.parent
     config_path = project_root / filename
-    if config_path.is_file():
-        with open(config_path) as f:
-            return yaml.safe_load(f)
-    raise FileNotFoundError(f"Config file '{filename}' not found in project root")
+    
+    if not config_path.is_file():
+        raise FileNotFoundError(f"Config file \"{filename}\" not found in project root")
+    
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    
+    if "rpc" not in config or "url" not in config["rpc"]:
+        raise ValueError("Invalid config: 'rpc.url' is required")
+    
+    if "indexer" not in config or "start_slot" not in config["indexer"]:
+        raise ValueError("Invalid config: 'indexer.start_slot' is required")
+
+    # TO DO: Remove the redundancy of this setup — I have a function elsewhere to get the latest slot
+    rpc_url = config["rpc"]["url"]
+    async with AsyncClient(rpc_url) as client:
+        latest_slot = (await client.get_slot(Confirmed)).value
+    
+    def process_slot(value, slot_type):
+        if isinstance(value, int) and value >= 0:
+            return value
+        if value is None and slot_type == "end_slot":
+            return None
+        if isinstance(value, str):
+            if value.lower() == "genesis":
+                return 0
+            if value.lower() == "latest":
+                return latest_slot
+            # TO DO: Add handling to determine which block/slot was last processed and saved
+            if value.lower() == "last_processed":
+                pass
+        raise ValueError(f"Invalid {slot_type} value. Must be a positive integer, null (for end_slot), 'genesis', or 'latest'")
+    
+    config["indexer"]["start_slot"] = process_slot(config["indexer"]["start_slot"], "start_slot")
+    if "end_slot" in config["indexer"]:
+        config["indexer"]["end_slot"] = process_slot(config["indexer"]["end_slot"], "end_slot")
+    
+    return config
 
 def setup_logger(log_file_path="logs/solana_indexer.log", log_level=logging.INFO):
     logger = logging.getLogger("main_logger")
