@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import polars as pl
 from typing import Optional
-from utils import logger
+from src.solana_indexer.utils import logger
 
 def write_df_to_parquet(df: pl.DataFrame, data_type: str, slot: int, base_path: str = "data"):
     """

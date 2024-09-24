@@ -1,7 +1,7 @@
 import asyncio
 import sys
-from indexer import SolanaIndexer
-from utils import logger, load_config
+from src.solana_indexer.indexer import SolanaIndexer
+from src.solana_indexer.utils import logger, load_config
 
 async def main():
     try:
