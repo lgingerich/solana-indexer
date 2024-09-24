@@ -12,7 +12,20 @@ from solana.rpc.commitment import Confirmed
 from solana.exceptions import SolanaRpcException
 
 class SolanaIndexer:
+    """
+    A class for indexing Solana blockchain data.
+    This indexer processes blocks, transactions, instructions, and rewards,
+    storing the data in Parquet files for efficient querying and analysis.
+    """
+
     def __init__(self, rpc_url, start_slot, end_slot):
+        """
+        Initialize the SolanaIndexer with RPC connection and slot range.
+        
+        :param rpc_url: URL for the Solana RPC node
+        :param start_slot: Starting slot for indexing (can be 'latest', 'genesis', or a specific slot number)
+        :param end_slot: Ending slot for indexing (or None for continuous indexing)
+        """
         self.client = AsyncClient(rpc_url)
         self.configured_start_slot = start_slot
         self.end_slot = end_slot
@@ -22,6 +35,10 @@ class SolanaIndexer:
         self.schemas = SolanaSchemas()
 
     async def initialize(self):
+        """
+        Initialize the indexer by determining the starting slot.
+        This method handles different start configurations and resuming from previously processed data.
+        """
         self.latest_confirmed_slot = await self.get_latest_slot()
         last_processed_slot = find_last_processed_block()
 
@@ -42,10 +59,18 @@ class SolanaIndexer:
         logger.info(f"Indexer initialized. Processing will begin at slot: {self.current_slot}")
 
     async def get_latest_slot(self):
+        """Fetch the latest confirmed slot from the Solana network."""
         return (await self.client.get_slot(Confirmed)).value
     
     @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
     async def process_block(self, slot):
+        """
+        Process a single block at the given slot.
+        This method fetches the block data and extracts relevant information.
+        
+        :param slot: The slot number of the block to process
+        :return: Tuple of (block_data, transactions_data, instructions_data, rewards_data)
+        """
         try:
             block = (await self.client.get_block(slot, encoding="json", max_supported_transaction_version=0)).value
             
@@ -54,6 +79,7 @@ class SolanaIndexer:
 
             logger.info(f"Processing block at slot {slot}")
 
+            # Extract basic block information
             block_data = {
                 "parent_slot": block.parent_slot,
                 "slot": slot,
@@ -63,6 +89,7 @@ class SolanaIndexer:
                 "blockhash": str(block.blockhash),
             }
 
+            # Process transactions, instructions, and rewards
             transactions_data = self.process_transactions(block.transactions, slot)
             instructions_data = self.process_instructions(block.transactions, slot)
             rewards_data = self.process_rewards(block.rewards, slot)
@@ -74,10 +101,18 @@ class SolanaIndexer:
             raise  # Re-raise the exception to be caught by the retry decorator
 
     def process_transactions(self, transactions, slot):
+        """
+        Process all transactions in a block.
+        
+        :param transactions: List of transactions in the block
+        :param slot: The slot number of the block
+        :return: List of processed transaction data
+        """
         transactions_data = []
 
         for tx in transactions:
             try:
+                # Extract relevant transaction information
                 tx_data = {
                     "slot": slot,
                     "signature": str(tx.transaction.signatures[0]) if tx.transaction.signatures else None,
@@ -90,8 +125,8 @@ class SolanaIndexer:
                     "fee": tx.meta.fee if tx.meta else None,
                     "pre_balances": json.dumps(tx.meta.pre_balances) if tx.meta and tx.meta.pre_balances else None,
                     "post_balances": json.dumps(tx.meta.post_balances) if tx.meta and tx.meta.post_balances else None,
-                    "pre_token_balances": json.dumps(self.process_token_balances(tx.meta.pre_token_balances)) if tx.meta and hasattr(tx.meta, "pre_token_balances") else None, # this is often null — is that correct?
-                    "post_token_balances": json.dumps(self.process_token_balances(tx.meta.post_token_balances)) if tx.meta and hasattr(tx.meta, "post_token_balances") else None, # this is often null — is that correct?
+                    "pre_token_balances": json.dumps(self.process_token_balances(tx.meta.pre_token_balances)) if tx.meta and hasattr(tx.meta, "pre_token_balances") else None,
+                    "post_token_balances": json.dumps(self.process_token_balances(tx.meta.post_token_balances)) if tx.meta and hasattr(tx.meta, "post_token_balances") else None,
                     "log_messages": json.dumps(tx.meta.log_messages) if tx.meta and hasattr(tx.meta, "log_messages") else None,
                     "rewards": json.dumps(self.process_rewards(tx.meta.rewards, slot)) if tx.meta and hasattr(tx.meta, "rewards") else None,
                     "compute_units_consumed": tx.meta.compute_units_consumed if tx.meta and hasattr(tx.meta, "compute_units_consumed") else None,
@@ -103,10 +138,19 @@ class SolanaIndexer:
         return transactions_data
 
     def process_instructions(self, transactions, slot):
+        """
+        Process all instructions in a block's transactions.
+        This includes both top-level and inner instructions.
+        
+        :param transactions: List of transactions in the block
+        :param slot: The slot number of the block
+        :return: List of processed instruction data
+        """
         instructions_data = []
 
         for tx in transactions:
             try:
+                # Process top-level instructions
                 for idx, instruction in enumerate(tx.transaction.message.instructions):
                     instruction_data = {
                         "slot": slot,
@@ -142,6 +186,12 @@ class SolanaIndexer:
         return instructions_data
 
     def process_token_balances(self, token_balances):
+        """
+        Process token balance information from transactions.
+        
+        :param token_balances: List of token balance objects
+        :return: List of processed token balance data
+        """
         if not token_balances:
             return None
         
@@ -155,8 +205,8 @@ class SolanaIndexer:
                     "decimals": balance.ui_token_amount.decimals,
                     "ui_amount": balance.ui_token_amount.ui_amount,
                     "ui_amount_string": balance.ui_token_amount.ui_amount_string,
-                    "owner": str(balance.owner) if balance.owner else None,  # Convert Pubkey to string
-                    "program_id": str(balance.program_id) if balance.program_id else None,  # Convert Pubkey to string
+                    "owner": str(balance.owner) if balance.owner else None,
+                    "program_id": str(balance.program_id) if balance.program_id else None,
                 }
                 processed_balances.append(processed_balance)
             except Exception as e:
@@ -164,6 +214,13 @@ class SolanaIndexer:
         return processed_balances
 
     def process_rewards(self, rewards, slot):
+        """
+        Process reward information from blocks or transactions.
+        
+        :param rewards: List of reward objects
+        :param slot: The slot number associated with the rewards
+        :return: List of processed reward data
+        """
         if not rewards:
             return None
         
@@ -184,14 +241,20 @@ class SolanaIndexer:
         return processed_rewards
 
     async def run(self):
+        """
+        Main loop for the indexer. This method continuously processes blocks
+        until the end slot is reached or the indexer is stopped.
+        """
         try:
             await self.initialize()
             while self.is_running:
                 try:
+                    # Check if we've reached the end slot
                     if self.end_slot is not None and self.current_slot > self.end_slot:
                         logger.info(f"Reached end slot {self.end_slot}. Stopping indexer.")
                         break
 
+                    # Wait for new blocks if we've caught up to the latest
                     if self.current_slot >= self.latest_confirmed_slot:
                         self.latest_confirmed_slot = await self.get_latest_slot()
                         if self.current_slot >= self.latest_confirmed_slot:
@@ -200,6 +263,7 @@ class SolanaIndexer:
 
                     logger.info(f"Processing slot: {self.current_slot}")
 
+                    # Process the current block
                     block_data, transactions_data, instructions_data, rewards_data = await self.process_block(self.current_slot)
 
                     # Convert data to Polars DataFrames
@@ -215,7 +279,7 @@ class SolanaIndexer:
                     if rewards_df is not None:
                         write_df_to_parquet(rewards_df, "rewards", self.current_slot)
 
-                    # Increment the current slot
+                    # Move to the next slot
                     self.current_slot += 1
 
                 except SolanaRpcException as e:
@@ -231,8 +295,10 @@ class SolanaIndexer:
             await self.cleanup()
 
     async def cleanup(self):
+        """Perform cleanup operations when the indexer is shutting down."""
         await self.client.close()
         logger.info("Indexer shut down successfully.")
 
     def stop(self):
+        """Signal the indexer to stop processing."""
         self.is_running = False
