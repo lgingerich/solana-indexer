@@ -1,5 +1,3 @@
-
-**(WIP)**
 ![Solana data relational model](solana_data_relational_model.png)
 
 ## Development
@@ -60,11 +58,9 @@ Ruff will analyze your code for potential errors and style issues.
 
 
 # To Do:
-- Improve error/exception handling
-    - Can also add circuit breaker logic via "pybreaker"
 
 - Data saving
-    - v1: batch save data to csv
+    - v1: batch save data to parquet
     - v2: add iceberg/parquet as data sink
     - v3: implement streaming/micro-batch saving to iceberg
 

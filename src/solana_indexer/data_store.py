@@ -28,7 +28,7 @@ def write_df_to_parquet(df: pl.DataFrame, data_type: str, slot: int, base_path: 
         
         # Create a directory structure that groups data by millions of slots
         # This helps in managing large amounts of data efficiently
-        directory = Path(base_path) / data_type / f"slot_{slot // 1_000_000:07d}xxx"
+        directory = Path(base_path) / data_type / f"slot_{slot // 1_000_000:010d}xxx"
         try:
             directory.mkdir(parents=True, exist_ok=True)
         except OSError as e:
