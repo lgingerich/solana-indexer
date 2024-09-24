@@ -11,8 +11,7 @@ class SolanaSchemas:
         """
         Defines the schema for a Solana block.
         
-        Returns:
-            dict: A dictionary mapping field names to polars data types.
+        :return: dict, a dictionary mapping field names to polars data types
         """
         return {
             "parent_slot": pl.Int64, # The slot number of the parent block
@@ -28,8 +27,7 @@ class SolanaSchemas:
         """
         Defines the schema for Solana transactions.
         
-        Returns:
-            dict: A dictionary mapping field names to polars data types.
+        :return: dict, a dictionary mapping field names to polars data types
         """
         return {
             "slot": pl.Int64, # Slot number where the transaction was processed
@@ -55,8 +53,7 @@ class SolanaSchemas:
         """
         Defines the schema for Solana transaction instructions.
         
-        Returns:
-            dict: A dictionary mapping field names to polars data types.
+        :return: dict, a dictionary mapping field names to polars data types
         """
         return {
             "slot": pl.Int64, # Slot number where the instruction was processed
@@ -75,8 +72,7 @@ class SolanaSchemas:
         """
         Defines the schema for Solana rewards.
         
-        Returns:
-            dict: A dictionary mapping field names to polars data types.
+        :return: dict, a dictionary mapping field names to polars data types
         """
         return {
             "slot": pl.Int64, # Slot number where the reward was given

@@ -98,7 +98,11 @@ class SolanaIndexer:
         
         except SolanaRpcException as e:
             logger.error(f"Solana RPC Exception in process_block for slot {slot}: {str(e)}")
-            raise  # Re-raise the exception to be caught by the retry decorator
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in process_block for slot {slot}: {str(e)}")
+            logger.debug(f"Traceback: {traceback.format_exc()}")
+            raise
 
     def process_transactions(self, transactions, slot):
         """
@@ -134,6 +138,7 @@ class SolanaIndexer:
                 transactions_data.append(tx_data)
             except Exception as e:
                 logger.error(f"Error processing transaction in slot {slot}: {str(e)}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         return transactions_data
 
@@ -182,6 +187,7 @@ class SolanaIndexer:
                             instructions_data.append(inner_instruction_data)
             except Exception as e:
                 logger.error(f"Error processing instructions in slot {slot}: {str(e)}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
 
         return instructions_data
 
@@ -211,6 +217,8 @@ class SolanaIndexer:
                 processed_balances.append(processed_balance)
             except Exception as e:
                 logger.error(f"Error processing token balance: {str(e)}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
+
         return processed_balances
 
     def process_rewards(self, rewards, slot):
@@ -238,6 +246,8 @@ class SolanaIndexer:
                 processed_rewards.append(processed_reward)
             except Exception as e:
                 logger.error(f"Error processing reward in slot {slot}: {str(e)}")
+                logger.debug(f"Traceback: {traceback.format_exc()}")
+
         return processed_rewards
 
     async def run(self):
@@ -273,24 +283,29 @@ class SolanaIndexer:
                     rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
 
                     # Write DataFrames to Parquet files
-                    write_df_to_parquet(block_df, "blocks", self.current_slot)
-                    write_df_to_parquet(transactions_df, "transactions", self.current_slot)
-                    write_df_to_parquet(instructions_df, "instructions", self.current_slot)
-                    if rewards_df is not None:
-                        write_df_to_parquet(rewards_df, "rewards", self.current_slot)
+                    try:
+                        write_df_to_parquet(block_df, "blocks", self.current_slot)
+                        write_df_to_parquet(transactions_df, "transactions", self.current_slot)
+                        write_df_to_parquet(instructions_df, "instructions", self.current_slot)
+                        if rewards_df is not None:
+                            write_df_to_parquet(rewards_df, "rewards", self.current_slot)
+                    except Exception as e:
+                        logger.error(f"Error writing data to Parquet for slot {self.current_slot}: {str(e)}")
+                        logger.debug(f"Traceback: {traceback.format_exc()}")
 
                     # Move to the next slot
                     self.current_slot += 1
 
                 except SolanaRpcException as e:
-                    logger.error(f"Solana RPC Exception in process_block for slot {self.current_slot}: {str(e)}")
-                    raise  # Re-raise the exception to be caught by the retry decorator
-
+                    logger.error(f"Solana RPC Exception in run loop for slot {self.current_slot}: {str(e)}")
+                    await asyncio.sleep(5)  # Add a delay before retrying
                 except Exception as e:
-                    error_msg = f"Error in main loop: {str(e)}\n"
-                    error_msg += "Traceback:\n"
-                    error_msg += traceback.format_exc()
-                    logger.error(error_msg)
+                    logger.error(f"Unexpected error in run loop for slot {self.current_slot}: {str(e)}")
+                    logger.debug(f"Traceback: {traceback.format_exc()}")
+                    await asyncio.sleep(5)  # Add a delay before retrying
+        except Exception as e:
+            logger.critical(f"Critical error in run method: {str(e)}")
+            logger.debug(f"Traceback: {traceback.format_exc()}")
         finally:
             await self.cleanup()
 

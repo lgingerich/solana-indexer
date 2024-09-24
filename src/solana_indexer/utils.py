@@ -13,56 +13,81 @@ from solana.rpc.commitment import Confirmed
 
 # Function to load and validate configuration from a YAML file
 async def load_config(filename="config.yml"):
-    # Find the project root directory and construct the config file path
-    project_root = Path(__file__).resolve().parent.parent.parent
-    config_path = project_root / filename
-    
-    # Check if the config file exists
-    if not config_path.is_file():
-        raise FileNotFoundError(f"Config file \"{filename}\" not found in project root")
-    
-    # Load the YAML configuration
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-    
-    # Validate required configuration keys
-    if "rpc" not in config or "url" not in config["rpc"]:
-        raise ValueError("Invalid config: 'rpc.url' is required")
-    
-    if "indexer" not in config or "start_slot" not in config["indexer"]:
-        raise ValueError("Invalid config: 'indexer.start_slot' is required")
+    """
+    Load and validate configuration from a YAML file.
 
-    # TO DO: Remove the redundancy of this setup — I have a function elsewhere to get the latest slot
-    # Get the latest slot from the Solana network
-    rpc_url = config["rpc"]["url"]
-    async with AsyncClient(rpc_url) as client:
-        latest_slot = (await client.get_slot(Confirmed)).value
+    :param filename: str, name of the configuration file
+    :return: dict, validated configuration dictionary
+    """
+    try:
+        # Find the project root directory and construct the config file path
+        project_root = Path(__file__).resolve().parent.parent.parent
+        config_path = project_root / filename
+        
+        # Check if the config file exists
+        if not config_path.is_file():
+            raise FileNotFoundError(f"Config file \"{filename}\" not found in project root")
+        
+        # Load the YAML configuration
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        
+        # Validate required configuration keys
+        if "rpc" not in config or "url" not in config["rpc"]:
+            raise ValueError("Invalid config: 'rpc.url' is required")
+        
+        if "indexer" not in config or "start_slot" not in config["indexer"]:
+            raise ValueError("Invalid config: 'indexer.start_slot' is required")
+
+        # TO DO: Remove the redundancy of this setup — I have a function elsewhere to get the latest slot
+        # Get the latest slot from the Solana network
+        rpc_url = config["rpc"]["url"]
+        async with AsyncClient(rpc_url) as client:
+            try:
+                latest_slot = (await client.get_slot(Confirmed)).value
+            except SolanaRpcException as e:
+                logger.error(f"Failed to get latest slot: {str(e)}")
+                raise
+        
+        # Helper function to process and validate slot values
+        def process_slot(value, slot_type):
+            if isinstance(value, int) and value >= 0:
+                return value
+            if value is None and slot_type == "end_slot":
+                return None
+            if isinstance(value, str):
+                if value.lower() == "genesis":
+                    return 0
+                if value.lower() == "latest":
+                    return latest_slot
+                # TO DO: Add handling to determine which block/slot was last processed and saved
+                if value.lower() == "last_processed":
+                    pass
+            raise ValueError(f"Invalid {slot_type} value. Must be a positive integer, null (for end_slot), 'genesis', or 'latest'")
+        
+        # Process and validate start_slot and end_slot values
+        config["indexer"]["start_slot"] = process_slot(config["indexer"]["start_slot"], "start_slot")
+        if "end_slot" in config["indexer"]:
+            config["indexer"]["end_slot"] = process_slot(config["indexer"]["end_slot"], "end_slot")
+        
+        return config
     
-    # Helper function to process and validate slot values
-    def process_slot(value, slot_type):
-        if isinstance(value, int) and value >= 0:
-            return value
-        if value is None and slot_type == "end_slot":
-            return None
-        if isinstance(value, str):
-            if value.lower() == "genesis":
-                return 0
-            if value.lower() == "latest":
-                return latest_slot
-            # TO DO: Add handling to determine which block/slot was last processed and saved
-            if value.lower() == "last_processed":
-                pass
-        raise ValueError(f"Invalid {slot_type} value. Must be a positive integer, null (for end_slot), 'genesis', or 'latest'")
-    
-    # Process and validate start_slot and end_slot values
-    config["indexer"]["start_slot"] = process_slot(config["indexer"]["start_slot"], "start_slot")
-    if "end_slot" in config["indexer"]:
-        config["indexer"]["end_slot"] = process_slot(config["indexer"]["end_slot"], "end_slot")
-    
-    return config
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing YAML config: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in load_config: {str(e)}")
+        raise
 
 # Function to set up a logger with both console and file handlers
 def setup_logger(log_file_path="logs/solana_indexer.log", log_level=logging.INFO):
+    """
+    Set up a logger with both console and file handlers.
+
+    :param log_file_path: str, path to the log file
+    :param log_level: int, logging level
+    :return: logging.Logger, configured logger instance
+    """
     logger = logging.getLogger("main_logger")
     if not logger.handlers:
         logger.setLevel(log_level)
@@ -114,6 +139,16 @@ def async_retry(
     jitter=True,
     exceptions=(SolanaRpcException,),
 ):
+    """
+    Decorator for implementing retry logic with exponential backoff for async functions.
+
+    :param retries: int, number of retry attempts
+    :param base_delay: int, base delay between retries in seconds
+    :param exponential_backoff: bool, whether to use exponential backoff
+    :param jitter: bool, whether to add random jitter to the delay
+    :param exceptions: tuple, exceptions to catch and retry
+    :return: function, decorated function
+    """
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -126,8 +161,7 @@ def async_retry(
                             f"All retry attempts failed for {func.__name__}: {str(e)}"
                         )
                         raise
-
-                    # Calculate delay with optional exponential backoff and jitter
+                    
                     delay = (
                         base_delay * (2 ** (attempt - 1))
                         if exponential_backoff
@@ -140,6 +174,9 @@ def async_retry(
                         f"Attempt {attempt} failed for {func.__name__}. Retrying in {delay:.2f} seconds. Error: {str(e)}"
                     )
                     await asyncio.sleep(delay)
+                except Exception as e:
+                    logger.error(f"Unexpected error in {func.__name__}: {str(e)}")
+                    raise
 
         return wrapper
 
