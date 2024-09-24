@@ -1,0 +1,74 @@
+{
+  "rules": [
+    {
+      "name": "Solana-Specific Operations",
+      "pattern": "(?i)\\b(solana|blockchain|transaction|block|account|program|instruction)\\b",
+      "message": "Ensure all Solana-specific operations are implemented using appropriate Solana libraries and follow best practices for blockchain data handling."
+    },
+    {
+      "name": "Iceberg Table Format",
+      "pattern": "(?i)\\b(iceberg|table|schema|partition|metadata)\\b",
+      "message": "Use Apache Iceberg for table management. Implement proper schema evolution, partitioning strategies, and metadata handling for efficient querying and storage."
+    },
+    {
+      "name": "Parquet File Optimization",
+      "pattern": "(?i)\\b(parquet|compression|encoding|column)\\b",
+      "message": "Optimize Parquet files for read and write performance. Use appropriate compression and encoding schemes based on data characteristics."
+    },
+    {
+      "name": "Spark Processing",
+      "pattern": "(?i)\\b(spark|dataframe|rdd|transformation|action)\\b",
+      "message": "Leverage Spark for distributed processing. Use DataFrames and RDDs effectively, optimize transformations, and minimize shuffles for better performance."
+    },
+    {
+      "name": "Scalability Considerations",
+      "pattern": "(?i)\\b(scale|performance|throughput|latency)\\b",
+      "message": "Design for scalability from the start. Consider data volume, processing speed, and query performance in all architectural decisions."
+    },
+    {
+      "name": "Data Consistency",
+      "pattern": "(?i)\\b(consistency|atomic|transaction|commit)\\b",
+      "message": "Ensure data consistency across the indexing pipeline. Implement proper error handling and atomic operations to maintain data integrity."
+    },
+    {
+      "name": "Efficient Querying",
+      "pattern": "(?i)\\b(query|index|filter|aggregate)\\b",
+      "message": "Optimize for efficient querying. Create appropriate indexes, use partition pruning, and implement smart filtering techniques."
+    },
+    {
+      "name": "Real-time Processing",
+      "pattern": "(?i)\\b(real-time|streaming|kafka|kinesis)\\b",
+      "message": "If implementing real-time indexing, use appropriate streaming technologies like Kafka and consider using Spark Streaming for processing."
+    },
+    {
+      "name": "Security Best Practices",
+      "pattern": "(?i)\\b(security|encryption|access|authentication)\\b",
+      "message": "Implement robust security measures. Use encryption for data at rest and in transit, implement proper access controls, and follow AWS security best practices."
+    },
+    {
+      "name": "Monitoring and Logging",
+      "pattern": "(?i)\\b(monitor|log|metric|alert)\\b",
+      "message": "Implement comprehensive monitoring and logging. Use Prometheus and Grafana or other monitoring tools to track system health, performance metrics, and potential issues."
+    },
+    {
+      "name": "Cost Optimization",
+      "pattern": "(?i)\\b(cost|optimize|efficient|resource)\\b",
+      "message": "Optimize for cost efficiency. Use appropriate instance types, leverage spot instances where possible, and implement data lifecycle policies."
+    },
+    {
+      "name": "Testing and Validation",
+      "pattern": "(?i)\\b(test|validate|verify|assert)\\b",
+      "message": "Implement thorough testing and validation. Include unit tests, integration tests, and data quality checks throughout the indexing pipeline."
+    },
+    {
+      "name": "Documentation",
+      "pattern": "(?i)\\b(document|comment|explain|describe)\\b",
+      "message": "Maintain clear and up-to-date documentation. Document architecture decisions, data models, and operational procedures."
+    },
+    {
+      "name": "Code Quality",
+      "pattern": "(?i)\\b(quality|lint|format|style)\\b",
+      "message": "Adhere to Python best practices and PEP 8 style guide. Use linting tools and formatters to maintain consistent code quality."
+    }
+  ]
+}
