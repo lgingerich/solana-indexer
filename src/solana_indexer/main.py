@@ -11,14 +11,21 @@ async def main():
         start_slot = config["indexer"]["start_slot"]
         end_slot = config["indexer"].get("end_slot")
         
+        # Load data store configuration
+        data_store_config = config["indexer"].get("data_store", {})
+        data_store_type = data_store_config.get("type", "parquet")
+        data_store_params = data_store_config.get("params", {})
+        
         # Log important configuration details
         logger.info(f"RPC URL: {rpc_url}")
         logger.info(f"Configured start slot: {start_slot}")
         logger.info(f"Configured end slot: {end_slot}")
-        logger.info("Note: Actual starting slot may differ based on previously processed data. \n")
+        logger.info(f"Data store type: {data_store_type}")
+        logger.info(f"Data store params: {data_store_params}")
+        logger.info("Note: Actual starting slot may differ based on previously processed data.\n")
 
         # Initialize the Solana indexer with configured parameters
-        indexer = SolanaIndexer(rpc_url, start_slot, end_slot)
+        indexer = SolanaIndexer(rpc_url, start_slot, end_slot, data_store_type, data_store_params)
 
         def signal_handler():
             """

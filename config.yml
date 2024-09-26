@@ -10,3 +10,13 @@ indexer:
   # - null: Only valid for end_slot, indicates continuous processing
   start_slot: 100_000_000 
   end_slot: null  # Optional: set to null for continuous processing
+
+  # Data store configuration
+  data_store:
+    type: "parquet"  # Options: "parquet", "iceberg"
+    params:
+      base_path: "data"  # Base path for Parquet files
+      # Additional parameters for Iceberg (when implemented):
+      # warehouse_path: "iceberg_warehouse"
+      # catalog_name: "solana_indexer"
+      # namespace: "blockchain_data"

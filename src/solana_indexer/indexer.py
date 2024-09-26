@@ -3,7 +3,7 @@ import json
 import polars as pl
 import traceback
 
-from src.solana_indexer.data_store import write_df_to_parquet, find_last_processed_block
+from src.solana_indexer.data_manager import get_data_store
 from src.solana_indexer.schemas import SolanaSchemas
 from src.solana_indexer.utils import logger, async_retry
 
@@ -15,16 +15,18 @@ class SolanaIndexer:
     """
     A class for indexing Solana blockchain data.
     This indexer processes blocks, transactions, instructions, and rewards,
-    storing the data in Parquet files for efficient querying and analysis.
+    storing the data using the configured DataStore for efficient querying and analysis.
     """
 
-    def __init__(self, rpc_url, start_slot, end_slot):
+    def __init__(self, rpc_url, start_slot, end_slot, data_store_type="parquet", data_store_params=None):
         """
-        Initialize the SolanaIndexer with RPC connection and slot range.
+        Initialize the SolanaIndexer with RPC connection, slot range, and data store configuration.
         
         :param rpc_url: URL for the Solana RPC node
         :param start_slot: Starting slot for indexing (can be 'latest', 'genesis', or a specific slot number)
         :param end_slot: Ending slot for indexing (or None for continuous indexing)
+        :param data_store_type: Type of data store to use (e.g., 'parquet', 'iceberg')
+        :param data_store_params: Additional parameters for the data store
         """
         self.client = AsyncClient(rpc_url)
         self.configured_start_slot = start_slot
@@ -33,6 +35,7 @@ class SolanaIndexer:
         self.latest_confirmed_slot = None
         self.is_running = True
         self.schemas = SolanaSchemas()
+        self.data_store = get_data_store(data_store_type, **(data_store_params or {}))
 
     async def initialize(self):
         """
@@ -40,7 +43,7 @@ class SolanaIndexer:
         This method handles different start configurations and resuming from previously processed data.
         """
         self.latest_confirmed_slot = await self.get_latest_slot()
-        last_processed_slot = find_last_processed_block()
+        last_processed_slot = self.data_store.find_last_processed_block()
 
         if last_processed_slot is not None:
             # Resume from the next slot after the last processed one
@@ -282,15 +285,15 @@ class SolanaIndexer:
                     instructions_df = pl.DataFrame(instructions_data, schema=self.schemas.instructions_schema())
                     rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
 
-                    # Write DataFrames to Parquet files
+                    # Write DataFrames using the configured data store
                     try:
-                        write_df_to_parquet(block_df, "blocks", self.current_slot)
-                        write_df_to_parquet(transactions_df, "transactions", self.current_slot)
-                        write_df_to_parquet(instructions_df, "instructions", self.current_slot)
+                        self.data_store.write_df(block_df, "blocks", self.current_slot)
+                        self.data_store.write_df(transactions_df, "transactions", self.current_slot)
+                        self.data_store.write_df(instructions_df, "instructions", self.current_slot)
                         if rewards_df is not None:
-                            write_df_to_parquet(rewards_df, "rewards", self.current_slot)
+                            self.data_store.write_df(rewards_df, "rewards", self.current_slot)
                     except Exception as e:
-                        logger.error(f"Error writing data to Parquet for slot {self.current_slot}: {str(e)}")
+                        logger.error(f"Error writing data for slot {self.current_slot}: {str(e)}")
                         logger.debug(f"Traceback: {traceback.format_exc()}")
 
                     # Move to the next slot
