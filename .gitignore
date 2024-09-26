@@ -180,3 +180,4 @@ pyrightconfig.json
 .csv
 logs
 data
+*.db

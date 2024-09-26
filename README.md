@@ -59,6 +59,11 @@ Ruff will analyze your code for potential errors and style issues.
 
 # To Do:
 
+- Some slots/blocks are missing block time data. Want to partition on this field, so 
+need to fill in the missing data.
+
+- Fix partitioning in iceberg
+
 - Data saving
     - v1: batch save data to parquet
     - v2: add iceberg/parquet as data sink

@@ -17,10 +17,17 @@ development:
     end_slot: null  # Optional: set to null for continuous processing
 
   # Data store configuration
+  # data_store:
+  #   type: "parquet"  # Options: "parquet", "iceberg"
+  #   params:
+  #     base_path: "data"  # Base path for Parquet files
   data_store:
-    type: "parquet"  # Options: "parquet", "iceberg"
+    type: "iceberg"
     params:
-      base_path: "data"  # Base path for Parquet files
+      warehouse_path: "iceberg_warehouse"
+      catalog_name: "solana_indexer"
+      namespace: "blockchain_data"
+      uri: "sqlite:///iceberg_warehouse/iceberg.db"
 
 production:
   rpc:
@@ -36,3 +43,4 @@ production:
       warehouse_path: "iceberg_warehouse"
       catalog_name: "solana_indexer"
       namespace: "blockchain_data"
+      uri: "sqlite:///iceberg_warehouse/iceberg.db"
