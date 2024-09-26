@@ -14,8 +14,8 @@ class SolanaSchemas:
         :return: dict, a dictionary mapping field names to polars data types
         """
         return {
-            "parent_slot": pl.Int64, # The slot number of the parent block
             "slot": pl.Int64, # The current block's slot number
+            "parent_slot": pl.Int64, # The slot number of the parent block
             "block_time": pl.Int64, # Unix timestamp of the block
             "block_height": pl.Int64, # Height of the block in the blockchain
             "previous_blockhash": pl.Utf8, # Hash of the previous block
