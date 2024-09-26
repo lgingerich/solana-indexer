@@ -1,22 +1,38 @@
-rpc:
-  url: "https://api.mainnet-beta.solana.com"  # Solana RPC endpoint
+default:
+  environment: "development"
 
-indexer:
-  # Valid values for start_slot and end_slot:
-  # - Positive integers (e.g., 100_000_000)
-  # - "genesis": Start from the genesis block (slot 0)
-  # - "last_processed": Start from slot last saved in storage
-  # - "latest": Use the most recent confirmed slot
-  # - null: Only valid for end_slot, indicates continuous processing
-  start_slot: 100_000_000 
-  end_slot: null  # Optional: set to null for continuous processing
+development:
+  rpc:
+    # url: "https://api.devnet.solana.com"  # Have some issues with using devnet
+    url: "https://api.mainnet-beta.solana.com"
+
+  indexer:
+    # Valid values for start_slot and end_slot:
+    # - Positive integers (e.g., 100_000_000)
+    # - "genesis": Start from the genesis block (slot 0)
+    # - "last_processed": Start from slot last saved in storage
+    # - "latest": Use the most recent confirmed slot
+    # - null: Only valid for end_slot, indicates continuous processing
+    start_slot: 250_000_000 
+    end_slot: null  # Optional: set to null for continuous processing
 
   # Data store configuration
   data_store:
     type: "parquet"  # Options: "parquet", "iceberg"
     params:
       base_path: "data"  # Base path for Parquet files
-      # Additional parameters for Iceberg (when implemented):
-      # warehouse_path: "iceberg_warehouse"
-      # catalog_name: "solana_indexer"
-      # namespace: "blockchain_data"
+
+production:
+  rpc:
+    url: "https://api.mainnet-beta.solana.com"  # Solana RPC endpoint for production
+
+  indexer:
+    start_slot: "last_processed"
+    end_slot: null
+
+  data_store:
+    type: "iceberg"
+    params:
+      warehouse_path: "iceberg_warehouse"
+      catalog_name: "solana_indexer"
+      namespace: "blockchain_data"

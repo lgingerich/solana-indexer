@@ -7,16 +7,17 @@ async def main():
     try:
         # Load configuration and set up the Solana indexer
         config = await load_config()
-        rpc_url = config["rpc"]["url"]
-        start_slot = config["indexer"]["start_slot"]
-        end_slot = config["indexer"].get("end_slot")
+        rpc_url = config.rpc.url
+        start_slot = config.indexer.start_slot
+        end_slot = config.indexer.get('end_slot')
         
         # Load data store configuration
-        data_store_config = config["indexer"].get("data_store", {})
-        data_store_type = data_store_config.get("type", "parquet")
-        data_store_params = data_store_config.get("params", {})
+        data_store_config = config.data_store
+        data_store_type = data_store_config.type
+        data_store_params = data_store_config.params
         
         # Log important configuration details
+        logger.info(f"Environment: {config.environment}")
         logger.info(f"RPC URL: {rpc_url}")
         logger.info(f"Configured start slot: {start_slot}")
         logger.info(f"Configured end slot: {end_slot}")

@@ -1,54 +1,56 @@
 import asyncio
 from colorlog import ColoredFormatter
+from dynaconf import Dynaconf, Validator
 from functools import wraps
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import random
-import yaml
+
 from solana.exceptions import SolanaRpcException
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 
-# Function to load and validate configuration from a YAML file
-async def load_config(filename="config.yml"):
-    """
-    Load and validate configuration from a YAML file.
+# Initialize Dynaconf
+project_root = Path(__file__).resolve().parent.parent.parent
+settings = Dynaconf(
+    envvar_prefix="SOLANA_INDEXER",
+    settings_files=[project_root / "config.yml", project_root / ".secrets.yml"],
+    environments=True,
+    load_dotenv=True,
+)
 
-    :param filename: str, name of the configuration file
-    :return: dict, validated configuration dictionary
+# Function to load and validate configuration
+async def load_config():
+    """
+    Load and validate configuration using Dynaconf.
+
+    :return: Dynaconf settings object
     """
     try:
-        # Find the project root directory and construct the config file path
-        project_root = Path(__file__).resolve().parent.parent.parent
-        config_path = project_root / filename
-        
-        # Check if the config file exists
-        if not config_path.is_file():
-            raise FileNotFoundError(f"Config file \"{filename}\" not found in project root")
-        
-        # Load the YAML configuration
-        with open(config_path) as f:
-            config = yaml.safe_load(f)
-        
         # Validate required configuration keys
-        if "rpc" not in config or "url" not in config["rpc"]:
-            raise ValueError("Invalid config: 'rpc.url' is required")
-        
-        if "indexer" not in config or "start_slot" not in config["indexer"]:
-            raise ValueError("Invalid config: 'indexer.start_slot' is required")
+        settings.validators.register(
+            Validator('environment', must_exist=True, is_in=['development', 'production']),
+            Validator('rpc.url', must_exist=True, is_type_of=str),
+            Validator('indexer.start_slot', must_exist=True),
+            Validator('data_store.type', must_exist=True, is_in=['parquet', 'iceberg']),
+            Validator('data_store.params.base_path', must_exist=True, when=Validator('data_store.type', eq='parquet')),
+            Validator('data_store.params.warehouse_path', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
+            Validator('data_store.params.catalog_name', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
+            Validator('data_store.params.namespace', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
+        )
+        settings.validators.validate()
 
-        # TO DO: Remove the redundancy of this setup — I have a function elsewhere to get the latest slot
         # Get the latest slot from the Solana network
-        rpc_url = config["rpc"]["url"]
+        rpc_url = settings.rpc.url
         async with AsyncClient(rpc_url) as client:
             try:
                 latest_slot = (await client.get_slot(Confirmed)).value
             except SolanaRpcException as e:
                 logger.error(f"Failed to get latest slot: {str(e)}")
                 raise
-        
+
         # Helper function to process and validate slot values
         def process_slot(value, slot_type):
             if isinstance(value, int) and value >= 0:
@@ -64,17 +66,14 @@ async def load_config(filename="config.yml"):
                 if value.lower() == "last_processed":
                     pass
             raise ValueError(f"Invalid {slot_type} value. Must be a positive integer, null (for end_slot), 'genesis', or 'latest'")
-        
+
         # Process and validate start_slot and end_slot values
-        config["indexer"]["start_slot"] = process_slot(config["indexer"]["start_slot"], "start_slot")
-        if "end_slot" in config["indexer"]:
-            config["indexer"]["end_slot"] = process_slot(config["indexer"]["end_slot"], "end_slot")
-        
-        return config
-    
-    except yaml.YAMLError as e:
-        logger.error(f"Error parsing YAML config: {str(e)}")
-        raise
+        settings.indexer.start_slot = process_slot(settings.indexer.start_slot, "start_slot")
+        if "end_slot" in settings.indexer:
+            settings.indexer.end_slot = process_slot(settings.indexer.end_slot, "end_slot")
+
+        return settings
+
     except Exception as e:
         logger.error(f"Unexpected error in load_config: {str(e)}")
         raise
