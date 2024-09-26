@@ -3,6 +3,7 @@ import polars as pl
 from typing import Optional
 from pathlib import Path
 from utils import logger
+import math
 
 # ABC is used to define an interface for different storage backends.
 # It ensures implementing classes provide write_df and find_last_processed_block 
@@ -31,13 +32,15 @@ class ParquetDataStore(DataStore):
             if not isinstance(slot, int) or slot < 0:
                 raise ValueError("slot must be a non-negative integer")
             
-            directory = self.base_path / data_type / f"slot_{slot // 1_000_000:010d}xxx"
+            # Calculate the correct directory name
+            dir_base = (slot // 1_000_000) * 1_000_000
+            directory = self.base_path / data_type / f"slot_{dir_base:09d}"
             try:
                 directory.mkdir(parents=True, exist_ok=True)
             except OSError as e:
                 raise IOError(f"Failed to create directory {directory}: {e}")
             
-            file_name = f"{data_type}_slot_{slot:010d}.parquet"
+            file_name = f"{data_type}_slot_{slot}.parquet"
             file_path = directory / file_name
             
             df.write_parquet(file_path)
