@@ -3,9 +3,9 @@ import json
 import polars as pl
 import traceback
 
-from src.solana_indexer.data_manager import get_data_store
-from src.solana_indexer.schemas import SolanaSchemas
-from src.solana_indexer.utils import logger, async_retry
+from data_manager import get_data_store
+from schemas import SolanaSchemas
+from utils import logger, async_retry
 
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import polars as pl
 from typing import Optional
 from pathlib import Path
-from solana_indexer.utils import logger
+from utils import logger
 
 # ABC is used to define an interface for different storage backends.
 # It ensures implementing classes provide write_df and find_last_processed_block 
