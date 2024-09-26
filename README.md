@@ -64,9 +64,11 @@ Ruff will analyze your code for potential errors and style issues.
     - v2: add iceberg/parquet as data sink
     - v3: implement streaming/micro-batch saving to iceberg
 
+- Are there any guarantees on using saved data integrity on restarts?
+
+- Parallel processing for historical backfills
+
 - Handle chain reorgs
     - TBD if I want to handle this
-
-- (Long term) Parallel processing for historical backfills
 
 - Data validation / quality checks
