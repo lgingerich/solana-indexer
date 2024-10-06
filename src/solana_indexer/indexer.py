@@ -66,7 +66,7 @@ class SolanaIndexer:
         return (await self.client.get_slot(Confirmed)).value
     
     @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
-    async def process_block(self, slot: int) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+    async def process_block(self, slot: int) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
         """
         Process a single block at the given slot.
         This method fetches the block data and extracts relevant information.
@@ -83,14 +83,14 @@ class SolanaIndexer:
             logger.info(f"Processing block at slot {slot}")
 
             # Extract basic block information
-            block_data = {
+            block_data = [{
                 "slot": slot,
                 "parent_slot": block.parent_slot,
                 "block_time": block.block_time,
                 "block_height": block.block_height,
                 "previous_blockhash": str(block.previous_blockhash),
                 "blockhash": str(block.blockhash),
-            }
+            }]
 
             # Process transactions, instructions, and rewards
             transactions_data = self.process_transactions(block.transactions, slot)
@@ -279,19 +279,13 @@ class SolanaIndexer:
                     # Process the current block
                     block_data, transactions_data, instructions_data, rewards_data = await self.process_block(self.current_slot)
 
-                    # Convert data to Polars DataFrames
-                    block_df = pl.DataFrame([block_data], schema=self.schemas.block_schema())
-                    transactions_df = pl.DataFrame(transactions_data, schema=self.schemas.transactions_schema())
-                    instructions_df = pl.DataFrame(instructions_data, schema=self.schemas.instructions_schema())
-                    rewards_df = pl.DataFrame(rewards_data, schema=self.schemas.rewards_schema()) if rewards_data else None
-
                     # Write DataFrames using the configured data store
                     try:
-                        self.data_store.write_df(block_df, "blocks", self.current_slot)
-                        self.data_store.write_df(transactions_df, "transactions", self.current_slot)
-                        self.data_store.write_df(instructions_df, "instructions", self.current_slot)
-                        if rewards_df is not None:
-                            self.data_store.write_df(rewards_df, "rewards", self.current_slot)
+                        self.data_store.write_df(block_data, "blocks", self.current_slot)
+                        self.data_store.write_df(transactions_data, "transactions", self.current_slot)
+                        self.data_store.write_df(instructions_data, "instructions", self.current_slot)
+                        if rewards_data is not None:
+                            self.data_store.write_df(rewards_data, "rewards", self.current_slot)
                     except Exception as e:
                         logger.error(f"Error writing data for slot {self.current_slot}: {str(e)}")
                         logger.debug(f"Traceback: {traceback.format_exc()}")
