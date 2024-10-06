@@ -2,13 +2,14 @@ import os
 from abc import ABC, abstractmethod
 import pandas as pd
 from pathlib import Path
-from typing import Optional, Dict, List, Union, Any
+from typing import Any, Dict, List, Optional
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pyiceberg.catalog import load_catalog
 from pyiceberg.exceptions import NoSuchTableError
 from pyiceberg.partitioning import PartitionSpec, PartitionField
+from pyiceberg.schema import Schema
 from pyiceberg.table import Table
 from pyiceberg.transforms import TruncateTransform, BucketTransform
 from sqlalchemy import create_engine
@@ -177,9 +178,9 @@ class IcebergDataStore(DataStore):
             db_file = uri.replace("sqlite:///", "")
             if not os.path.exists(db_file):
                 open(db_file, 'a').close()  # Create an empty file
-        logger.warning(f"Using URI: {uri}")
-        logger.warning(f"Database: {db_file}")
-        logger.warning(f"Namespace: {namespace}")
+        logger.info(f"Using URI: {uri}")
+        logger.info(f"Database: {db_file}")
+        logger.info(f"Namespace: {namespace}")
         self.engine: Engine = create_engine(uri, echo=False)
         
         catalog_kwargs = {
@@ -198,16 +199,35 @@ class IcebergDataStore(DataStore):
         
         self._create_tables()
 
+    # TO DO: Fix partitioning
     def _create_tables(self):
-
-        # TO DO: Add partitioning to the tables
         for table_name, schema in table_schemas.items():
+            
             if not self.catalog.table_exists(f"{self.namespace}.{table_name}"):
+
+                # # Create a partition spec that groups by every 1000 slots
+                # partition_spec = PartitionSpec(
+                #     PartitionField(
+                #         source_id=1,  # Assuming 'slot' is the first field in the schema
+                #         # # source_id=schema.index_of_field("slot"),
+                #         field_id=1000,
+                #         # # transform=TruncateTransform(width=3),
+                #         # transform=TruncateTransform(width=3),
+                #         # name="slot"
+                #         # source_id=iceberg_schema.find_field("slot").field_id,
+                #         transform=TruncateTransform(1000000),
+                #         name="slot"
+                #     )
+                # )
+
                 self.catalog.create_table(
                     identifier=f"{self.namespace}.{table_name}",
+                    # schema=iceberg_schema,
                     schema=schema,
                     # partition_spec=partition_spec
                 )
+                # logger.info(f"Created table {table_name} with partition spec: {partition_spec}")
+                logger.info(f"Created table {table_name}")
 
     def write_table(self, data: List[Dict[str, Any]], table_var: str, slot: int) -> str:
         try:

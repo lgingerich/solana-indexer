@@ -1,7 +1,7 @@
 import asyncio
 import json
 import traceback
-from typing import Dict, List, Optional, Tuple, Any, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from data_manager import get_data_store
 from schemas import SolanaSchemas
