@@ -16,7 +16,7 @@ async def main():
         data_store_type = data_store_config.type
         data_store_params = data_store_config.params
         
-        # Log important configuration details
+        # Log setup configuration details
         logger.info(f"Environment: {config.environment}")
         logger.info(f"RPC URL: {rpc_url}")
         logger.info(f"Configured start slot: {start_slot}")
@@ -28,7 +28,7 @@ async def main():
         # Initialize the Solana indexer with configured parameters
         indexer = SolanaIndexer(rpc_url, start_slot, end_slot, data_store_type, data_store_params)
 
-        def signal_handler():
+        def signal_handler() -> None:
             """
             Handle keyboard interrupts (SIGINT) gracefully.
             This function is called when the user presses Ctrl+C.

@@ -281,11 +281,11 @@ class SolanaIndexer:
 
                     # Write DataFrames using the configured data store
                     try:
-                        self.data_store.write_df(block_data, "blocks", self.current_slot)
-                        self.data_store.write_df(transactions_data, "transactions", self.current_slot)
-                        self.data_store.write_df(instructions_data, "instructions", self.current_slot)
+                        self.data_store.write_table(block_data, "blocks", self.current_slot)
+                        self.data_store.write_table(transactions_data, "transactions", self.current_slot)
+                        self.data_store.write_table(instructions_data, "instructions", self.current_slot)
                         if rewards_data is not None:
-                            self.data_store.write_df(rewards_data, "rewards", self.current_slot)
+                            self.data_store.write_table(rewards_data, "rewards", self.current_slot)
                     except Exception as e:
                         logger.error(f"Error writing data for slot {self.current_slot}: {str(e)}")
                         logger.debug(f"Traceback: {traceback.format_exc()}")
