@@ -1,7 +1,7 @@
 import asyncio
 import json
-import polars as pl
 import traceback
+from typing import Dict, List, Optional, Tuple, Any, Union
 
 from data_manager import get_data_store
 from schemas import SolanaSchemas
@@ -37,7 +37,7 @@ class SolanaIndexer:
         self.schemas = SolanaSchemas()
         self.data_store = get_data_store(data_store_type, **(data_store_params or {}))
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """
         Initialize the indexer by determining the starting slot.
         This method handles different start configurations and resuming from previously processed data.
@@ -61,12 +61,12 @@ class SolanaIndexer:
 
         logger.info(f"Indexer initialized. Processing will begin at slot: {self.current_slot}")
 
-    async def get_latest_slot(self):
+    async def get_latest_slot(self) -> int:
         """Fetch the latest confirmed slot from the Solana network."""
         return (await self.client.get_slot(Confirmed)).value
     
     @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
-    async def process_block(self, slot):
+    async def process_block(self, slot: int) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
         """
         Process a single block at the given slot.
         This method fetches the block data and extracts relevant information.
@@ -84,8 +84,8 @@ class SolanaIndexer:
 
             # Extract basic block information
             block_data = {
-                "parent_slot": block.parent_slot,
                 "slot": slot,
+                "parent_slot": block.parent_slot,
                 "block_time": block.block_time,
                 "block_height": block.block_height,
                 "previous_blockhash": str(block.previous_blockhash),
@@ -107,7 +107,7 @@ class SolanaIndexer:
             logger.debug(f"Traceback: {traceback.format_exc()}")
             raise
 
-    def process_transactions(self, transactions, slot):
+    def process_transactions(self, transactions: List[Any], slot: int) -> List[Dict[str, Any]]:
         """
         Process all transactions in a block.
         
@@ -145,7 +145,7 @@ class SolanaIndexer:
 
         return transactions_data
 
-    def process_instructions(self, transactions, slot):
+    def process_instructions(self, transactions: List[Any], slot: int) -> List[Dict[str, Any]]:
         """
         Process all instructions in a block's transactions.
         This includes both top-level and inner instructions.
@@ -194,7 +194,7 @@ class SolanaIndexer:
 
         return instructions_data
 
-    def process_token_balances(self, token_balances):
+    def process_token_balances(self, token_balances: Optional[List[Any]]) -> Optional[List[Dict[str, Any]]]:
         """
         Process token balance information from transactions.
         
@@ -224,7 +224,7 @@ class SolanaIndexer:
 
         return processed_balances
 
-    def process_rewards(self, rewards, slot):
+    def process_rewards(self, rewards: Optional[List[Any]], slot: int) -> Optional[List[Dict[str, Any]]]:
         """
         Process reward information from blocks or transactions.
         
@@ -253,7 +253,7 @@ class SolanaIndexer:
 
         return processed_rewards
 
-    async def run(self):
+    async def run(self) -> None:
         """
         Main loop for the indexer. This method continuously processes blocks
         until the end slot is reached or the indexer is stopped.
@@ -312,11 +312,11 @@ class SolanaIndexer:
         finally:
             await self.cleanup()
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """Perform cleanup operations when the indexer is shutting down."""
         await self.client.close()
         logger.info("Indexer shut down successfully.")
 
-    def stop(self):
+    def stop(self) -> None:
         """Signal the indexer to stop processing."""
         self.is_running = False
