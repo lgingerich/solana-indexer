@@ -181,3 +181,4 @@ pyrightconfig.json
 logs
 data
 *.db
+/iceberg_warehouse

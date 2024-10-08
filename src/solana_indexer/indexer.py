@@ -4,7 +4,6 @@ import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
 from data_manager import get_data_store
-from schemas import SolanaSchemas
 from utils import logger, async_retry
 
 from solana.rpc.async_api import AsyncClient
@@ -34,7 +33,6 @@ class SolanaIndexer:
         self.current_slot = None
         self.latest_confirmed_slot = None
         self.is_running = True
-        self.schemas = SolanaSchemas()
         self.data_store = get_data_store(data_store_type, **(data_store_params or {}))
 
     async def initialize(self) -> None:

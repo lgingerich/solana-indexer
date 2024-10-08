@@ -34,11 +34,21 @@ async def load_config():
             Validator('environment', must_exist=True, is_in=['development', 'production']),
             Validator('rpc.url', must_exist=True, is_type_of=str),
             Validator('indexer.start_slot', must_exist=True),
-            Validator('data_store.type', must_exist=True, is_in=['parquet', 'iceberg']),
+            # Validator('indexer.end_slot', must_exist=False, is_type_of=(int, str, type(None))),
+            Validator('indexer.end_slot', must_exist=True),
+            Validator('data_store.type', must_exist=True, is_in=['parquet', 'iceberg', 'spark']),
+            # Parquet-specific validations
             Validator('data_store.params.base_path', must_exist=True, when=Validator('data_store.type', eq='parquet')),
+            # Iceberg-specific validations
             Validator('data_store.params.warehouse_path', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
             Validator('data_store.params.catalog_name', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
             Validator('data_store.params.namespace', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
+            Validator('data_store.params.uri', must_exist=True, when=Validator('data_store.type', eq='iceberg')),
+            # Spark-specific validations
+            Validator('data_store.params.warehouse_path', must_exist=True, when=Validator('data_store.type', eq='spark')),
+            Validator('data_store.params.catalog_name', must_exist=True, when=Validator('data_store.type', eq='spark')),
+            Validator('data_store.params.namespace', must_exist=True, when=Validator('data_store.type', eq='spark')),
+            Validator('data_store.params.spark_config', must_exist=True, when=Validator('data_store.type', eq='spark')),
         )
         settings.validators.validate()
 

@@ -19,6 +19,7 @@ dynaconf = "^3.2.6"
 pyiceberg = "^0.7.1"
 sqlalchemy = "^2.0.35"
 pandas = "^2.2.3"
+pyspark = "^3.5.3"
 
 [tool.poetry.dev-dependencies]
 black = "^23.11.0"
