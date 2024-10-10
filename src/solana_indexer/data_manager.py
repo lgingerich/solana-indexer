@@ -55,7 +55,7 @@ class SparkDataStore(DataStore):
                 builder = builder.config(key, value)
 
         self.spark = builder.getOrCreate()
-
+        logger.warning(f"file://{os.path.abspath(warehouse_path)}")
         # Verify Spark session creation
         try:
             self.spark.sql("SHOW DATABASES").show()
@@ -102,12 +102,12 @@ class SparkDataStore(DataStore):
             df.writeTo(f"local.{table_name}") \
               .using("iceberg") \
               .tableProperty("write.format.default", "parquet") \
-              .mode("append") \
               .append()
 
             logger.info(f"Successfully wrote {data_type} data for slot {slot} to Iceberg table: {table_name}")
             return f"local.{table_name}"
         except Exception as e:
+            logger.info(f"Data snippet for {data_type}: {data[:5] if len(data) > 5 else data}")
             logger.error(f"Error writing {data_type} data for slot {slot}: {e}")
             raise
 
