@@ -85,8 +85,3 @@ need to fill in the missing data.
 - If only a single table type has data, the indexer should start from the start slot. 
     - Currently it starts from the last processed slot of that specific table type.
     - If data exists for some tables but not all, if I start from the lowest common block, I need to overwrite data 
-
-- Error to handle
-    2024-10-05 18:28:37,903 - ERROR - indexer - Unexpected error in process_block for slot 250000012: LongTermStorageSlotSkippedMessage { message: "Slot 250000012 was skipped, or missing in long-term storage" }
-    2024-10-05 18:28:37,904 - ERROR - utils - Unexpected error in process_block: LongTermStorageSlotSkippedMessage { message: "Slot 250000012 was skipped, or missing in long-term storage" }
-    2024-10-05 18:28:37,905 - ERROR - indexer - Unexpected error in run loop for slot 250000012: LongTermStorageSlotSkippedMessage { message: "Slot 250000012 was skipped, or missing in long-term storage" }

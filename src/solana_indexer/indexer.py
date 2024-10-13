@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -106,6 +107,9 @@ class SolanaIndexer:
             logger.error(f"Solana RPC Exception in process_block for slot {slot}: {str(e)}")
             raise
         except Exception as e:
+            if "LongTermStorageSlotSkippedMessage" in str(e):
+                logger.warning(f"Slot {slot} was unavailable in long-term storage. Skipping this slot.")
+                return None, None, None, None
             logger.error(f"Unexpected error in process_block for slot {slot}: {str(e)}")
             logger.debug(f"Traceback: {traceback.format_exc()}")
             raise
@@ -279,6 +283,9 @@ class SolanaIndexer:
 
                     logger.info(f"Processing slot: {self.current_slot}")
 
+                    # Start timing the block processing
+                    start_time = time.time()
+
                     # Process the current block
                     block_data, transactions_data, instructions_data, rewards_data = await self.process_block(self.current_slot)
 
@@ -292,6 +299,11 @@ class SolanaIndexer:
                     except Exception as e:
                         logger.error(f"Error writing data for slot {self.current_slot}: {str(e)}")
                         logger.debug(f"Traceback: {traceback.format_exc()}")
+
+                    # Calculate and log the processing time
+                    end_time = time.time()
+                    processing_time = end_time - start_time
+                    logger.info(f"Processed slot {self.current_slot} in {processing_time:.2f} seconds")
 
                     # Move to the next slot
                     self.current_slot += 1
