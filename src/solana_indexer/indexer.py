@@ -3,6 +3,7 @@ import json
 import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
+from connection_pool import AsyncClientPool, AsyncClientContext
 from data_manager import get_data_store
 from utils import logger, async_retry
 
@@ -17,17 +18,18 @@ class SolanaIndexer:
     storing the data using the configured DataStore for efficient querying and analysis.
     """
 
-    def __init__(self, rpc_url, start_slot, end_slot, data_store_type="parquet", data_store_params=None):
+    def __init__(self, rpc_url, start_slot, end_slot, data_store_type="parquet", data_store_params=None, pool_size=10):
         """
-        Initialize the SolanaIndexer with RPC connection, slot range, and data store configuration.
+        Initialize the SolanaIndexer with RPC connection pool, slot range, and data store configuration.
         
         :param rpc_url: URL for the Solana RPC node
         :param start_slot: Starting slot for indexing (can be 'latest', 'genesis', or a specific slot number)
         :param end_slot: Ending slot for indexing (or None for continuous indexing)
         :param data_store_type: Type of data store to use (e.g., 'parquet', 'iceberg')
         :param data_store_params: Additional parameters for the data store
+        :param pool_size: Size of the AsyncClient pool
         """
-        self.client = AsyncClient(rpc_url)
+        self.client_pool = AsyncClientPool(rpc_url, pool_size)
         self.configured_start_slot = start_slot
         self.end_slot = end_slot
         self.current_slot = None
@@ -40,6 +42,7 @@ class SolanaIndexer:
         Initialize the indexer by determining the starting slot.
         This method handles different start configurations and resuming from previously processed data.
         """
+        await self.client_pool.initialize()
         self.latest_confirmed_slot = await self.get_latest_slot()
         last_processed_slot = self.data_store.find_last_processed_block()
 
@@ -61,7 +64,8 @@ class SolanaIndexer:
 
     async def get_latest_slot(self) -> int:
         """Fetch the latest confirmed slot from the Solana network."""
-        return (await self.client.get_slot(Confirmed)).value
+        async with AsyncClientContext(self.client_pool) as client:
+            return (await client.get_slot(Confirmed)).value
     
     @async_retry(retries=5, base_delay=1, exponential_backoff=True, jitter=True)
     async def process_block(self, slot: int) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
@@ -73,7 +77,8 @@ class SolanaIndexer:
         :return: Tuple of (block_data, transactions_data, instructions_data, rewards_data)
         """
         try:
-            block = (await self.client.get_block(slot, encoding="json", max_supported_transaction_version=0)).value
+            async with AsyncClientContext(self.client_pool) as client:
+                block = (await client.get_block(slot, encoding="json", max_supported_transaction_version=0)).value
             
             if block is None:
                 raise Exception(f"Block not available for slot {slot}")
@@ -306,7 +311,7 @@ class SolanaIndexer:
 
     async def cleanup(self) -> None:
         """Perform cleanup operations when the indexer is shutting down."""
-        await self.client.close()
+        await self.client_pool.close()
         logger.info("Indexer shut down successfully.")
 
     def stop(self) -> None:
