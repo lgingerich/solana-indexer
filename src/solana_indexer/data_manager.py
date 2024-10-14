@@ -23,10 +23,11 @@ class DataStore(ABC):
         pass
 
 class SparkDataStore(DataStore):
-    def __init__(self, warehouse_path, catalog_name, namespace, spark_config=None):
+    def __init__(self, warehouse_path, catalog_name, namespace, tables_to_save, spark_config=None):
         self.warehouse_path = warehouse_path
         self.catalog_name = catalog_name
         self.namespace = namespace
+        self.tables_to_save = tables_to_save
 
         # Initialize Spark session with Iceberg configurations
         builder = SparkSession.builder \
@@ -57,6 +58,9 @@ class SparkDataStore(DataStore):
 
     def _create_tables(self):
         for table_name, schema in SparkSchemas.spark_schemas().items():
+            if table_name not in self.tables_to_save:
+                continue  # Skip table creation if it's not in tables_to_save
+
             full_table_name = f"local.{self.namespace}.{table_name}"
             
             try:
@@ -78,9 +82,8 @@ class SparkDataStore(DataStore):
                 raise
 
     def write_table(self, data: List[Dict[str, Any]], data_type: str, slot: int) -> str:
-        if not data:
-            logger.warning(f"No data to write for {data_type} at slot {slot}")
-            return f"local.{self.namespace}.{data_type}"
+        if data_type not in self.tables_to_save:
+            return f"local.{self.namespace}.{data_type}"  # Return table name without writing
 
         try:
             # Create DataFrame from data
@@ -100,32 +103,39 @@ class SparkDataStore(DataStore):
             raise
 
     def find_last_processed_block(self) -> Optional[int]:
-        last_slot = None
+        max_common_slot = None
         tables_exist = False
 
-        for data_type in SparkSchemas.spark_schemas().keys():
+        for data_type in self.tables_to_save:
             table_name = f"local.{self.namespace}.{data_type}"
+            logger.warning(f"Checking table: {table_name}")
             try:
                 df = self.spark.table(table_name)
                 max_slot = df.agg({"slot": "max"}).collect()[0][0]
+                logger.warning(f"Max slot: {max_slot}")
+
                 if max_slot is not None:
-                    if last_slot is None or max_slot > last_slot:
-                        last_slot = max_slot
-                tables_exist = True
+                    if max_common_slot is None or max_slot < max_common_slot:
+                        max_common_slot = max_slot
+                    tables_exist = True
+                else:
+                    # If any table has no data, we can't guarantee consistency
+                    logger.info(f"Table {table_name} is empty")
+                    return None
             except Exception as e:
                 logger.info(f"Table {table_name} does not exist or error accessing it: {e}")
-                continue
+                return None  # If any table is missing, we can't guarantee consistency
 
         if not tables_exist:
             logger.info("No tables found in Spark catalog. The database might be empty.")
             return None
 
-        if last_slot is not None:
-            logger.info(f"Last processed block found in Spark: slot {last_slot}")
+        if max_common_slot is not None:
+            logger.info(f"Highest common processed slot found in Spark: slot {max_common_slot}")
         else:
-            logger.info("No processed blocks found in Spark tables")
+            logger.info("No processed slots found in Spark tables")
         
-        return last_slot
+        return max_common_slot
 
     def _get_spark_type_string(self, spark_type):
         if isinstance(spark_type, LongType):
@@ -138,8 +148,8 @@ class SparkDataStore(DataStore):
             raise ValueError(f"Unsupported Spark type: {spark_type}")
 
 
-def get_data_store(store_type: str = "spark", **kwargs) -> DataStore:
+def get_data_store(store_type: str = "spark", tables_to_save=None, **kwargs) -> DataStore:
     if store_type == "spark":
-        return SparkDataStore(**kwargs)
+        return SparkDataStore(tables_to_save=tables_to_save, **kwargs)
     else:
         raise ValueError(f"Unsupported data store type: {store_type}")

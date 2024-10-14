@@ -49,6 +49,11 @@ async def load_config():
             Validator('data_store.params.catalog_name', must_exist=True, when=Validator('data_store.type', eq='spark')),
             Validator('data_store.params.namespace', must_exist=True, when=Validator('data_store.type', eq='spark')),
             Validator('data_store.params.spark_config', must_exist=True, when=Validator('data_store.type', eq='spark')),
+            # Table selection validations
+            Validator('tables.blocks', must_exist=True, is_type_of=bool),
+            Validator('tables.transactions', must_exist=True, is_type_of=bool),
+            Validator('tables.instructions', must_exist=True, is_type_of=bool),
+            Validator('tables.rewards', must_exist=True, is_type_of=bool),
         )
         settings.validators.validate()
 
@@ -77,6 +82,11 @@ async def load_config():
         settings.indexer.start_slot = process_slot(settings.indexer.start_slot, "start_slot")
         if "end_slot" in settings.indexer:
             settings.indexer.end_slot = process_slot(settings.indexer.end_slot, "end_slot")
+
+        # Process table selection
+        settings.tables_to_save = [
+            table for table, enabled in settings.tables.items() if enabled
+        ]
 
         return settings
 

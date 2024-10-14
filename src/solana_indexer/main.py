@@ -17,6 +17,9 @@ async def main():
         data_store_type = data_store_config.type
         data_store_params = data_store_config.params
         
+        # Get the list of tables to save
+        tables_to_save = config.tables_to_save
+        
         # Log setup configuration details
         logger.info(f"Environment: {config.environment}")
         logger.info(f"RPC URL: {rpc_url}")
@@ -24,10 +27,11 @@ async def main():
         logger.info(f"Configured end slot: {end_slot}")
         logger.info(f"Data store type: {data_store_type}")
         logger.info(f"Data store params: {data_store_params}")
+        logger.info(f"Tables to save: {tables_to_save}")
         logger.info("Note: Actual starting slot may differ based on previously processed data.\n")
 
         # Initialize the Solana indexer with configured parameters
-        indexer = SolanaIndexer(rpc_url, start_slot, end_slot, data_store_type, data_store_params)
+        indexer = SolanaIndexer(rpc_url, start_slot, end_slot, data_store_type, data_store_params, tables_to_save)
 
         def signal_handler() -> None:
             """

@@ -18,7 +18,7 @@ class SolanaIndexer:
     storing the data using the configured DataStore for efficient querying and analysis.
     """
 
-    def __init__(self, rpc_url, start_slot, end_slot, data_store_type="parquet", data_store_params=None, pool_size=10):
+    def __init__(self, rpc_url, start_slot, end_slot, data_store_type, data_store_params, tables_to_save, pool_size=10):
         """
         Initialize the SolanaIndexer with RPC connection pool, slot range, and data store configuration.
         
@@ -27,6 +27,7 @@ class SolanaIndexer:
         :param end_slot: Ending slot for indexing (or None for continuous indexing)
         :param data_store_type: Type of data store to use (e.g., 'parquet', 'iceberg')
         :param data_store_params: Additional parameters for the data store
+        :param tables_to_save: List of tables to save (e.g., ['blocks', 'transactions', 'instructions', 'rewards'])
         :param pool_size: Size of the AsyncClient pool
         """
         self.client_pool = AsyncClientPool(rpc_url, pool_size)
@@ -35,7 +36,8 @@ class SolanaIndexer:
         self.current_slot = None
         self.latest_confirmed_slot = None
         self.is_running = True
-        self.data_store = get_data_store(data_store_type, **(data_store_params or {}))
+        self.tables_to_save = tables_to_save
+        self.data_store = get_data_store(data_store_type, tables_to_save=tables_to_save, **(data_store_params or {}))
 
     async def initialize(self) -> None:
         """
@@ -97,12 +99,12 @@ class SolanaIndexer:
                 "block_height": block.block_height,
                 "previous_blockhash": str(block.previous_blockhash),
                 "blockhash": str(block.blockhash),
-            }]
+            }] if 'blocks' in self.tables_to_save else None
 
-            # Process transactions, instructions, and rewards
-            transactions_data = self.process_transactions(block.transactions, slot)
-            instructions_data = self.process_instructions(block.transactions, slot)
-            rewards_data = self.process_rewards(block.rewards, slot)
+            # Process transactions, instructions, and rewards only if they're in tables_to_save
+            transactions_data = self.process_transactions(block.transactions, slot) if 'transactions' in self.tables_to_save else None
+            instructions_data = self.process_instructions(block.transactions, slot) if 'instructions' in self.tables_to_save else None
+            rewards_data = self.process_rewards(block.rewards, slot) if 'rewards' in self.tables_to_save else None
 
             return block_data, transactions_data, instructions_data, rewards_data
         
@@ -294,15 +296,13 @@ class SolanaIndexer:
 
                     # Write DataFrames using the configured data store
                     try:
-                        self.data_store.write_table(block_data, "blocks", self.current_slot)
-                        self.data_store.write_table(transactions_data, "transactions", self.current_slot)
-                        self.data_store.write_table(instructions_data, "instructions", self.current_slot)
-                        if rewards_data is not None:
-                            self.data_store.write_table(rewards_data, "rewards", self.current_slot)
+                        for table_name in self.tables_to_save:
+                            data = locals()[f"{table_name}_data"]
+                            if data:
+                                self.data_store.write_table(data, table_name, self.current_slot)
                     except Exception as e:
                         logger.error(f"Error writing data for slot {self.current_slot}: {str(e)}")
                         logger.debug(f"Traceback: {traceback.format_exc()}")
-
                     # Calculate and log the processing time
                     end_time = time.time()
                     processing_time = end_time - start_time

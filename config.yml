@@ -3,8 +3,13 @@ default:
 
 development:
   rpc:
-    # url: "https://api.devnet.solana.com"  # Have some issues with using devnet
     url: "https://api.mainnet-beta.solana.com"
+
+  tables:
+    blocks: true
+    transactions: true
+    instructions: false
+    rewards: false
 
   indexer:
     # Valid values for start_slot and end_slot:
@@ -13,25 +18,34 @@ development:
     # - "last_processed": Start from slot last saved in storage
     # - "latest": Use the most recent confirmed slot
     # - null: Only valid for end_slot, indicates continuous processing
-    start_slot: 250_000_000 
-    end_slot: null  # Optional: set to null for continuous processing
+    start_slot: 250_000_001
+    # start_slot: "latest"
+    # start_slot: "last_processed"
+    # start_slot: 73_439_516
+    end_slot: 250_000_015 # Optional: set to null for continuous processing
+    # end_slot: null
 
   # Data store configuration
-  # data_store:
-  #   type: "parquet"  # Options: "parquet", "iceberg"
-  #   params:
-  #     base_path: "data"  # Base path for Parquet files
   data_store:
-    type: "iceberg"
+    type: "spark"
     params:
       warehouse_path: "iceberg_warehouse"
       catalog_name: "solana_indexer"
       namespace: "blockchain_data"
-      uri: "sqlite:///iceberg_warehouse/iceberg.db"
+      spark_config:
+        spark.executor.memory: "4g"
+        spark.driver.memory: "2g"
+        spark.sql.shuffle.partitions: "200"
 
 production:
   rpc:
     url: "https://api.mainnet-beta.solana.com"  # Solana RPC endpoint for production
+
+  tables:
+    blocks: true
+    transactions: true
+    instructions: true
+    rewards: true
 
   indexer:
     start_slot: "last_processed"
