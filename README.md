@@ -66,22 +66,8 @@ need to fill in the missing data.
 
 - Fix schema definition for nullable fields
 
-- Data saving
-    - v1: batch save data to parquet (DONE)
-    - v2: add iceberg/parquet as data sink (DONE)
-    - v3: implement streaming/micro-batch saving to iceberg
-
-- Are there any guarantees on using saved data integrity on restarts?
-
 - Parallel processing for historical backfills
 
-- Handle chain reorgs
-    - TBD if I want to handle this
-
-- Handle "last_processed" config
-
-- Data validation / quality checks
-
-- If only a single table type has data, the indexer should start from the start slot. 
-    - Currently it starts from the last processed slot of that specific table type.
-    - If data exists for some tables but not all, if I start from the lowest common block, I need to overwrite data 
+- Handling restarts
+    - Need to decide how to handle data restarts
+        - If a single table has data, what slot should it start from?
