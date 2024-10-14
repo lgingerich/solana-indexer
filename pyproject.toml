@@ -8,17 +8,9 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
-requests = "^2.31.0"
 solana = "^0.34.3"
 colorlog = "^6.8.2"
-solders = "^0.21.0"
-polars = "^1.6.0"
-pyyaml = "^6.0.2"
-pyarrow = "^17.0.0"
 dynaconf = "^3.2.6"
-pyiceberg = "^0.7.1"
-sqlalchemy = "^2.0.35"
-pandas = "^2.2.3"
 pyspark = "^3.5.3"
 
 [tool.poetry.dev-dependencies]

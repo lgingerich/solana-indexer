@@ -8,7 +8,6 @@ from connection_pool import AsyncClientPool, AsyncClientContext
 from data_manager import get_data_store
 from utils import logger, async_retry
 
-from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 from solana.exceptions import SolanaRpcException
 

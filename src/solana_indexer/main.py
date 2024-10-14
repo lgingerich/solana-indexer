@@ -1,5 +1,6 @@
 import asyncio
 import sys
+
 from indexer import SolanaIndexer
 from utils import logger, load_config
 
