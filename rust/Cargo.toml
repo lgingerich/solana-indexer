@@ -1,0 +1,10 @@
+[package]
+name = "rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.8.5"
+solana-client = "2.0.13"
+solana-sdk = "2.0.13"
+solana-transaction-status = "2.0.13"

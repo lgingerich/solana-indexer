@@ -182,3 +182,6 @@ logs
 data
 *.db
 /iceberg_warehouse
+
+# Rust
+/target
