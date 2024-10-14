@@ -61,21 +61,17 @@ async def load_config():
                 logger.error(f"Failed to get latest slot: {str(e)}")
                 raise
 
-        # Helper function to process and validate slot values
+        # # Helper function to process and validate slot values
         def process_slot(value, slot_type):
             if isinstance(value, int) and value >= 0:
                 return value
             if value is None and slot_type == "end_slot":
                 return None
             if isinstance(value, str):
-                if value.lower() == "genesis":
-                    return 0
-                if value.lower() == "latest":
-                    return latest_slot
-                # TO DO: Add handling to determine which block/slot was last processed and saved
-                if value.lower() == "last_processed":
-                    pass
-            raise ValueError(f"Invalid {slot_type} value. Must be a positive integer, null (for end_slot), 'genesis', or 'latest'")
+                if value.lower() in ["genesis", "latest", "last_processed"]:
+                    return value.lower()
+            raise ValueError(f"Invalid {slot_type} value. Must be a positive integer, null (for end_slot), 'genesis', 'latest', or 'last_processed'")
+
 
         # Process and validate start_slot and end_slot values
         settings.indexer.start_slot = process_slot(settings.indexer.start_slot, "start_slot")

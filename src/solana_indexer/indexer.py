@@ -24,7 +24,7 @@ class SolanaIndexer:
         Initialize the SolanaIndexer with RPC connection pool, slot range, and data store configuration.
         
         :param rpc_url: URL for the Solana RPC node
-        :param start_slot: Starting slot for indexing (can be 'latest', 'genesis', or a specific slot number)
+        :param start_slot: Starting slot for indexing (can be a specific slot number, 'latest', 'genesis', or 'last_processed')
         :param end_slot: Ending slot for indexing (or None for continuous indexing)
         :param data_store_type: Type of data store to use (e.g., 'parquet', 'iceberg')
         :param data_store_params: Additional parameters for the data store
@@ -47,19 +47,23 @@ class SolanaIndexer:
         self.latest_confirmed_slot = await self.get_latest_slot()
         last_processed_slot = self.data_store.find_last_processed_block()
 
-        if last_processed_slot is not None:
-            # Resume from the next slot after the last processed one
-            self.current_slot = last_processed_slot + 1
-            logger.info(f"Found previously processed data. Resuming from slot: {self.current_slot}")
+
+        if self.configured_start_slot == "genesis":
+            self.current_slot = 0
+            logger.info("Starting from genesis block (slot 0)")
         elif self.configured_start_slot == "latest":
             self.current_slot = self.latest_confirmed_slot
-            logger.info(f"No previous data found. Starting from latest confirmed slot: {self.current_slot}")
-        elif self.configured_start_slot == "genesis":
-            self.current_slot = 0
-            logger.info("No previous data found. Starting from genesis block (slot 0)")
+            logger.info(f"Starting from latest confirmed slot: {self.current_slot}")
+        elif self.configured_start_slot == "last_processed":
+            if last_processed_slot is not None:
+                self.current_slot = last_processed_slot + 1
+                logger.info(f"Starting from the last processed slot: {self.current_slot}")
+            else:
+                self.current_slot = 0
+                logger.info("No previously processed data found. Starting from genesis block (slot 0)")
         else:
             self.current_slot = self.configured_start_slot
-            logger.info(f"No previous data found. Starting from configured slot: {self.current_slot}")
+            logger.info(f"Starting from configured slot: {self.current_slot}")
 
         logger.info(f"Indexer initialized. Processing will begin at slot: {self.current_slot}")
 

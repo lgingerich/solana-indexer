@@ -17,7 +17,7 @@ from pyspark.sql.types import StructType, StructField, LongType, StringType, Boo
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from schemas import SolanaSchemas
+from schemas import SparkSchemas
 from utils import logger
 
 # ABC is used to define an interface for different storage backends.
@@ -68,7 +68,7 @@ class SparkDataStore(DataStore):
         self._create_tables()
 
     def _create_tables(self):
-        for table_name, schema in SolanaSchemas.spark_schemas().items():
+        for table_name, schema in SparkSchemas.spark_schemas().items():
             full_table_name = f"local.{self.namespace}.{table_name}"
             
             try:
@@ -96,7 +96,7 @@ class SparkDataStore(DataStore):
 
         try:
             # Create DataFrame from data
-            df = self.spark.createDataFrame(data, schema=SolanaSchemas.spark_schemas()[data_type])
+            df = self.spark.createDataFrame(data, schema=SparkSchemas.spark_schemas()[data_type])
 
             # Write DataFrame to Iceberg table
             table_name = f"{self.namespace}.{data_type}"
@@ -115,7 +115,7 @@ class SparkDataStore(DataStore):
         last_slot = None
         tables_exist = False
 
-        for data_type in SolanaSchemas.spark_schemas().keys():
+        for data_type in SparkSchemas.spark_schemas().keys():
             table_name = f"local.{self.namespace}.{data_type}"
             try:
                 df = self.spark.table(table_name)
