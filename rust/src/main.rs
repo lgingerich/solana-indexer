@@ -1,5 +1,8 @@
 mod types;
-use crate::types::block::{Block, BlockInfo};
+use crate::types::{
+    block::{Block, BlockInfo},
+    reward::RewardInfo
+};
 use solana_client::{
     rpc_client::RpcClient,
     client_error::ClientError
@@ -8,18 +11,21 @@ use solana_sdk::{
     clock::Slot,
     commitment_config::CommitmentConfig
 };
-use solana_transaction_status::UiConfirmedBlock;
+use solana_transaction_status::{
+    UiConfirmedBlock
+};
 
 
 const RPC_URL: &str = "https://api.mainnet-beta.solana.com";
-// const START_SLOT: Slot = 250_000_001;
-const START_SLOT: Slot = 2_001;
+const START_SLOT: Slot = 250_000_001;
+// const START_SLOT: Slot = 2_001;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = RpcClient::new(RPC_URL);
 
     let block = get_block(client)?;
     process_block(START_SLOT, &block);
+    process_reward(START_SLOT, &block);
 
     // println!("Block: {:?}", block); // normal print
     // println!("Block: {:#?}", block); // pretty print
@@ -55,7 +61,13 @@ fn process_block(slot: Slot, block: &Block) {
 
 // }
 
-// fn process_rewards() {
-
-// }
-
+fn process_reward(slot: Slot, block: &Block) {
+    if let Some(rewards) = &block.rewards {
+        let reward_info: Vec<RewardInfo> = rewards.iter()
+            .map(|reward| RewardInfo::new(slot, reward.clone()))
+            .collect();
+        println!("Rewards for slot {}: {:#?}", slot, reward_info);
+    } else {
+        println!("No rewards for slot {}", slot);
+    }
+}
