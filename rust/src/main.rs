@@ -12,7 +12,8 @@ use solana_sdk::{
     commitment_config::CommitmentConfig
 };
 use solana_transaction_status::{
-    UiConfirmedBlock
+    UiConfirmedBlock,
+    Rewards
 };
 
 
@@ -25,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let block = get_block(client)?;
     process_block(START_SLOT, &block);
-    process_reward(START_SLOT, &block);
+    process_reward(START_SLOT, block.rewards.as_ref());
 
     // println!("Block: {:?}", block); // normal print
     // println!("Block: {:#?}", block); // pretty print
@@ -61,8 +62,8 @@ fn process_block(slot: Slot, block: &Block) {
 
 // }
 
-fn process_reward(slot: Slot, block: &Block) {
-    if let Some(rewards) = &block.rewards {
+fn process_reward(slot: Slot, rewards: Option<&Rewards>) {
+    if let Some(rewards) = rewards {
         let reward_info: Vec<RewardInfo> = rewards.iter()
             .map(|reward| RewardInfo::new(slot, reward.clone()))
             .collect();
