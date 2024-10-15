@@ -1,26 +1,33 @@
-use solana_client::rpc_client::RpcClient;
+mod types;
+use crate::types::block::{Block, BlockInfo};
+use solana_client::{
+    rpc_client::RpcClient,
+    client_error::ClientError
+};
 use solana_sdk::{
     clock::Slot,
     commitment_config::CommitmentConfig
 };
 use solana_transaction_status::UiConfirmedBlock;
 
+
 const RPC_URL: &str = "https://api.mainnet-beta.solana.com";
-const START_SLOT: Slot = 250_000_001;
-// const START_SLOT: Slot = 2_001;
+// const START_SLOT: Slot = 250_000_001;
+const START_SLOT: Slot = 2_001;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = RpcClient::new(RPC_URL);
 
-    let block = process_block(client)?;
+    let block = get_block(client)?;
+    process_block(START_SLOT, &block);
 
-    println!("Block: {:?}", block); // normal print
+    // println!("Block: {:?}", block); // normal print
     // println!("Block: {:#?}", block); // pretty print
 
     Ok(())
 }
 
-fn process_block(client: RpcClient) -> Result<UiConfirmedBlock, Box<dyn std::error::Error>> {
+fn get_block(client: RpcClient) -> Result<UiConfirmedBlock, ClientError> {
     let config = solana_client::rpc_config::RpcBlockConfig {
         encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
         transaction_details: Some(solana_transaction_status::TransactionDetails::Full),
@@ -33,3 +40,22 @@ fn process_block(client: RpcClient) -> Result<UiConfirmedBlock, Box<dyn std::err
 
     Ok(block)
 }
+
+
+fn process_block(slot: Slot, block: &Block) {
+    let block_info = BlockInfo::new(slot, block);
+    println!("Block Info: {:#?}", block_info);
+}
+
+// fn process_transaction() {
+
+// }
+
+// fn process_instruction() {
+
+// }
+
+// fn process_rewards() {
+
+// }
+
