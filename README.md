@@ -1,3 +1,6 @@
+# ! Currently porting from Python to Rust !
+- Branch [`rust_port`](https://github.com/lgingerich/solana-indexer/tree/rust_port)
+
 ![Solana data relational model](solana_data_relational_model.png)
 
 ## Development
